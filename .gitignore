@@ -10,3 +10,4 @@ captures/
 .cxx/
 __pycache__/
 *.pyc
+.kotlin/
