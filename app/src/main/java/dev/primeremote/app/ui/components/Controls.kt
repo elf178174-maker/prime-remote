@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -171,6 +172,7 @@ fun JoystickControl(spec: ControlSpec, host: ControlHost, enabled: Boolean = tru
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .onSizeChanged { area = Size(it.width.toFloat(), it.height.toFloat()) }
             .then(
                 if (!enabled) Modifier else Modifier.trackFinger(
                     key = spec.id,
@@ -194,7 +196,6 @@ fun JoystickControl(spec: ControlSpec, host: ControlHost, enabled: Boolean = tru
             )
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            area = size
             val radius = min(size.width, size.height) / 2f
             val centre = Offset(size.width / 2f, size.height / 2f)
 
@@ -285,6 +286,7 @@ fun DPadControl(spec: ControlSpec, host: ControlHost, enabled: Boolean = true) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .onSizeChanged { area = Size(it.width.toFloat(), it.height.toFloat()) }
             .then(
                 if (!enabled) Modifier else Modifier.trackFinger(
                     key = spec.id,
@@ -295,7 +297,6 @@ fun DPadControl(spec: ControlSpec, host: ControlHost, enabled: Boolean = true) {
             )
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            area = size
             val w = size.width
             val h = size.height
             val armW = w / 3f
@@ -355,6 +356,7 @@ fun SliderControl(spec: ControlSpec, host: ControlHost, enabled: Boolean = true)
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .onSizeChanged { area = Size(it.width.toFloat(), it.height.toFloat()) }
             .then(
                 if (!enabled) Modifier else Modifier.trackFinger(
                     key = spec.id,
@@ -373,7 +375,6 @@ fun SliderControl(spec: ControlSpec, host: ControlHost, enabled: Boolean = true)
             )
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            area = size
             val radius = androidx.compose.ui.geometry.CornerRadius(min(size.width, size.height) * 0.3f)
             drawRoundRect(color.dim(0.22f), cornerRadius = radius)
             drawRoundRect(Color.White.copy(alpha = 0.18f), cornerRadius = radius, style = Stroke(3f))
