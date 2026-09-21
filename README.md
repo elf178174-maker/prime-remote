@@ -226,10 +226,24 @@ flashes. On Android 11 and older, scanning needs Location permission.
 **"error 133" when connecting.** A generic Android BLE failure. Try again; if it keeps
 happening, toggle Bluetooth off and on.
 
-**Connected, but nothing moves.** Open the console screen. You should see
-`!rdy 1 poll` shortly after connecting, and `!pg` replies once a second. If commands are
-being rejected you will see `!er` lines naming the command. If nothing at all appears, the
-program is not running — the hub's light should be azure.
+**Connected, but nothing moves.** Open the console screen — it tells you exactly how far
+the chain got:
+
+| What you see | What it means |
+| --- | --- |
+| Nothing at all | The program is not running. The hub's light should be azure once it is. |
+| `!rdy 1 poll` and `!pg` replies | Everything works; the problem is in the bindings (wrong port, speed 0, master speed turned down). |
+| `!rdy 1 poll` but never a `!pg` | The program is running but not receiving. See below. |
+| `!er …` lines | A command is being rejected, and the line names it. |
+
+`!rdy` without `!pg` is the interesting one: it means the program started but nothing the
+app sends is reaching its input. That is the one link in the chain that is inferred rather
+than spelled out in LEGO's protocol reference — the app sends commands as tunnel messages
+(message 50, which LEGO documents as carrying an arbitrary payload) and the program reads
+them from its standard input, which is where the firmware delivers console input. Every
+other part of this is straight from the published protocol. If you hit this, the console
+screen and the `ver` quick command are the tools for chasing it down, and it would be
+worth raising as an issue with what the console showed.
 
 **The console says `block` instead of `poll`.** The hub's MicroPython build has no
 `select` module, so the program falls back to blocking reads. Controls still work, but the
