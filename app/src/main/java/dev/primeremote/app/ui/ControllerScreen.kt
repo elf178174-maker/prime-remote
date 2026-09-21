@@ -71,11 +71,10 @@ fun ControllerScreen(
 ) {
     val profile by controller.activeProfile.collectAsState()
     val pageIndex by controller.pageIndex.collectAsState()
-    val session by controller.session.collectAsState()
-    val phase = session?.phase?.collectAsState()?.value
-    val telemetry = session?.telemetry?.collectAsState()?.value
-    val latency = session?.latencyMs?.collectAsState()?.value
-    val watchdog = session?.watchdogTripped?.collectAsState()?.value ?: false
+    val phase by controller.phase.collectAsState()
+    val telemetry by controller.telemetry.collectAsState()
+    val latency by controller.latencyMs.collectAsState()
+    val watchdog by controller.watchdogTripped.collectAsState()
     val connected = phase is HubSession.Phase.Ready
 
     val page = profile.page(pageIndex)
@@ -133,7 +132,7 @@ fun ControllerScreen(
                 maxLines = 1,
             )
 
-            telemetry?.batteryPercent?.let { battery ->
+            telemetry.batteryPercent?.let { battery ->
                 Text(
                     "$battery%",
                     style = MaterialTheme.typography.labelSmall,

@@ -20,7 +20,7 @@ import dev.primeremote.core.HubProgram
 
 @Composable
 fun SettingsScreen(controller: AppController, onBack: () -> Unit) {
-    val session by controller.session.collectAsState()
+    val hubName by controller.hubName.collectAsState()
     var autoReconnect by remember { mutableStateOf(controller.preferences.autoReconnect) }
     var notice by remember { mutableStateOf<String?>(null) }
 
@@ -69,9 +69,7 @@ fun SettingsScreen(controller: AppController, onBack: () -> Unit) {
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("Re-upload the program next time") }
-                    session?.let {
-                        Hint("Connected to ${it.deviceName}")
-                    }
+                    hubName?.let { name -> Hint("Connected to $name") }
                 }
             }
 

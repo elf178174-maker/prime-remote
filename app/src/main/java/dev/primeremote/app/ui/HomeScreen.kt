@@ -84,11 +84,11 @@ fun HomeScreen(
     val scanning by controller.scanner.scanning.collectAsState()
     val scanError by controller.scanner.error.collectAsState()
     val session by controller.session.collectAsState()
+    val phase by controller.phase.collectAsState()
     val status by controller.status.collectAsState()
     val connecting by controller.connecting.collectAsState()
     val profiles by controller.repository.profiles.collectAsState()
     val activeProfile by controller.activeProfile.collectAsState()
-    val phase = session?.phase?.collectAsState()?.value
 
     var showPresets by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<Profile?>(null) }

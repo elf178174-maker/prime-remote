@@ -25,12 +25,12 @@ import dev.primeremote.core.protocol.MotorType
 
 @Composable
 fun TelemetryScreen(controller: AppController, onBack: () -> Unit) {
-    val session by controller.session.collectAsState()
-    val telemetry = session?.telemetry?.collectAsState()?.value
-    val info = session?.hubInfo?.collectAsState()?.value
-    val latency = session?.latencyMs?.collectAsState()?.value
-    val inputMode = session?.hubInputMode?.collectAsState()?.value
-    val phase = session?.phase?.collectAsState()?.value
+    val telemetry by controller.telemetry.collectAsState()
+    val info by controller.hubInfo.collectAsState()
+    val latency by controller.latencyMs.collectAsState()
+    val inputMode by controller.hubInputMode.collectAsState()
+    val phase by controller.phase.collectAsState()
+    val hubName by controller.hubName.collectAsState()
     val commandRate by controller.commandRateHz.collectAsState()
 
     ScreenScaffold(title = "Telemetry", onBack = onBack) { padding ->
@@ -43,14 +43,14 @@ fun TelemetryScreen(controller: AppController, onBack: () -> Unit) {
         ) {
             item {
                 SectionCard("Connection") {
-                    KeyValue("State", phase?.let { describePhase(it) } ?: "Not connected")
-                    KeyValue("Hub", session?.deviceName ?: "—")
+                    KeyValue("State", describePhase(phase))
+                    KeyValue("Hub", hubName ?: "—")
                     KeyValue("Firmware", info?.firmwareVersion ?: "—")
                     KeyValue("Protocol", info?.rpcVersion ?: "—")
                     KeyValue("Max packet / chunk", info?.let { "${it.maxPacketSize} B / ${it.maxChunkSize} B" } ?: "—")
                     KeyValue("Round trip", latency?.let { "$it ms" } ?: "—")
                     KeyValue("Commands sent", "$commandRate per second")
-                    KeyValue("Dropped packets", (session?.packetsDropped ?: 0).toString())
+                    KeyValue("Dropped packets", controller.packetsDropped.toString())
                     KeyValue(
                         "Hub input mode",
                         when (inputMode) {
@@ -64,7 +64,7 @@ fun TelemetryScreen(controller: AppController, onBack: () -> Unit) {
 
             item {
                 SectionCard("Battery") {
-                    val battery = telemetry?.batteryPercent
+                    val battery = telemetry.batteryPercent
                     if (battery == null) {
                         Hint("No reading yet.")
                     } else {
@@ -80,7 +80,7 @@ fun TelemetryScreen(controller: AppController, onBack: () -> Unit) {
 
             item {
                 SectionCard("Motors") {
-                    val motors = telemetry?.motors.orEmpty()
+                    val motors = telemetry.motors
                     if (motors.isEmpty()) {
                         Hint("No motors reported. Plug one in and the hub will announce it.")
                     }
@@ -96,9 +96,9 @@ fun TelemetryScreen(controller: AppController, onBack: () -> Unit) {
 
             item {
                 SectionCard("Sensors") {
-                    val forces = telemetry?.forces.orEmpty()
-                    val distances = telemetry?.distances.orEmpty()
-                    val colors = telemetry?.colors.orEmpty()
+                    val forces = telemetry.forces
+                    val distances = telemetry.distances
+                    val colors = telemetry.colors
                     if (forces.isEmpty() && distances.isEmpty() && colors.isEmpty()) {
                         Hint("No sensors reported.")
                     }
@@ -122,7 +122,7 @@ fun TelemetryScreen(controller: AppController, onBack: () -> Unit) {
 
             item {
                 SectionCard("Motion") {
-                    val imu = telemetry?.imu
+                    val imu = telemetry.imu
                     if (imu == null) {
                         Hint("No motion data yet.")
                     } else {

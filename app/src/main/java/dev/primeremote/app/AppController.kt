@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import dev.primeremote.app.ble.BleScanner
+import dev.primeremote.app.ble.ConsoleLine
 import dev.primeremote.app.ble.HubSession
 import dev.primeremote.app.ble.Telemetry
 import dev.primeremote.app.data.AppPreferences
@@ -15,6 +16,7 @@ import dev.primeremote.core.model.Port
 import dev.primeremote.core.model.Profile
 import dev.primeremote.core.model.Slot
 import dev.primeremote.core.protocol.DeviceUpdate
+import dev.primeremote.core.protocol.InfoResponse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,6 +61,35 @@ class AppController(private val context: Context) {
     private val _commandRateHz = MutableStateFlow(0)
     val commandRateHz: StateFlow<Int> = _commandRateHz.asStateFlow()
 
+    // Mirrors of the current session's state. Keeping them here means the UI always has
+    // something to read, whether or not a hub is connected, and never has to make a
+    // composable call conditional on there being a session.
+    private val _phase = MutableStateFlow<HubSession.Phase>(HubSession.Phase.Idle)
+    val phase: StateFlow<HubSession.Phase> = _phase.asStateFlow()
+
+    private val _telemetry = MutableStateFlow(Telemetry())
+    val telemetry: StateFlow<Telemetry> = _telemetry.asStateFlow()
+
+    private val _console = MutableStateFlow<List<ConsoleLine>>(emptyList())
+    val console: StateFlow<List<ConsoleLine>> = _console.asStateFlow()
+
+    private val _hubInfo = MutableStateFlow<InfoResponse?>(null)
+    val hubInfo: StateFlow<InfoResponse?> = _hubInfo.asStateFlow()
+
+    private val _latencyMs = MutableStateFlow<Int?>(null)
+    val latencyMs: StateFlow<Int?> = _latencyMs.asStateFlow()
+
+    private val _hubInputMode = MutableStateFlow<String?>(null)
+    val hubInputMode: StateFlow<String?> = _hubInputMode.asStateFlow()
+
+    private val _watchdogTripped = MutableStateFlow(false)
+    val watchdogTripped: StateFlow<Boolean> = _watchdogTripped.asStateFlow()
+
+    private val _hubName = MutableStateFlow<String?>(null)
+    val hubName: StateFlow<String?> = _hubName.asStateFlow()
+
+    private val mirrorJobs = mutableListOf<Job>()
+
     /** True while the controller screen is the visible one; the send loop only runs then. */
     private var controllerActive = false
 
@@ -67,7 +98,6 @@ class AppController(private val context: Context) {
 
     private var senderJob: Job? = null
     private var connectJob: Job? = null
-    private var telemetryJob: Job? = null
     private var commandsSentInWindow = 0
     private var windowStartedAtMs = 0L
 
@@ -118,6 +148,7 @@ class AppController(private val context: Context) {
         scanner.stop()
         val session = HubSession(context, device, scope) { readHubProgram() }
         _session.value = session
+        startMirrors(session)
         _connecting.value = true
         _status.value = "Connecting…"
 
@@ -135,7 +166,6 @@ class AppController(private val context: Context) {
                 preferences.setProgramVersion(device.address, HubProgram.VERSION)
                 _status.value = "Connected to ${session.deviceName}"
                 session.sendCommands(engine.sessionInit())
-                startTelemetryWatch(session)
                 if (controllerActive) startSenderLoop()
             } else {
                 preferences.forgetProgramVersion(device.address)
@@ -155,8 +185,7 @@ class AppController(private val context: Context) {
         connectJob?.cancel()
         connectJob = null
         stopSenderLoop()
-        telemetryJob?.cancel()
-        telemetryJob = null
+        stopMirrors()
         _session.value?.let { session ->
             session.sendCommands(engine.panicStop())
             session.closeAndStopProgram(_activeProfile.value.settings.hubSlot)
@@ -164,26 +193,59 @@ class AppController(private val context: Context) {
         _session.value = null
         _connecting.value = false
         _status.value = "Not connected"
+        _phase.value = HubSession.Phase.Idle
+        _telemetry.value = Telemetry()
+        _hubInfo.value = null
+        _latencyMs.value = null
+        _hubInputMode.value = null
+        _watchdogTripped.value = false
+        _hubName.value = null
     }
 
     val isReady: Boolean
-        get() = _session.value?.phase?.value == HubSession.Phase.Ready
+        get() = _phase.value == HubSession.Phase.Ready
 
     private fun readHubProgram(): ByteArray =
         context.assets.open(HubProgram.ASSET_NAME).use { it.readBytes() }
 
-    private fun startTelemetryWatch(session: HubSession) {
-        telemetryJob?.cancel()
-        telemetryJob = scope.launch {
+    private fun startMirrors(session: HubSession) {
+        stopMirrors()
+        _hubName.value = session.deviceName
+        mirrorJobs += scope.launch {
             session.telemetry.collect { telemetry ->
-                // Knowing which motor is on which port lets percentages map onto the
-                // real top speed of that motor instead of a guess.
+                _telemetry.value = telemetry
+                // Knowing which motor is on which port lets percentages map onto the real
+                // top speed of that motor instead of a guess.
                 for ((port, motor) in telemetry.motors) {
                     engine.setMotorType(port, motor.deviceType)
                 }
             }
         }
+        mirrorJobs += scope.launch { session.phase.collect { _phase.value = it } }
+        mirrorJobs += scope.launch { session.console.collect { _console.value = it } }
+        mirrorJobs += scope.launch { session.hubInfo.collect { _hubInfo.value = it } }
+        mirrorJobs += scope.launch { session.latencyMs.collect { _latencyMs.value = it } }
+        mirrorJobs += scope.launch { session.hubInputMode.collect { _hubInputMode.value = it } }
+        mirrorJobs += scope.launch { session.watchdogTripped.collect { _watchdogTripped.value = it } }
     }
+
+    private fun stopMirrors() {
+        mirrorJobs.forEach { it.cancel() }
+        mirrorJobs.clear()
+    }
+
+    /** Clear the log shown on the console screen. */
+    fun clearConsole() {
+        _session.value?.clearConsole()
+        _console.value = emptyList()
+    }
+
+    /** Send one command line exactly as typed, for the debug console. */
+    fun sendRaw(line: String) {
+        _session.value?.sendRaw(line)
+    }
+
+    val packetsDropped: Int get() = _session.value?.packetsDropped ?: 0
 
     // -------------------------------------------------------------- control loop
 
@@ -278,9 +340,7 @@ class AppController(private val context: Context) {
         if (commands.isNotEmpty()) _session.value?.sendCommands(commands)
     }
 
-    fun motorFor(port: Port): DeviceUpdate.Motor? = _session.value?.telemetry?.value?.motors?.get(port)
-
-    fun telemetry(): Telemetry = _session.value?.telemetry?.value ?: Telemetry()
+    fun motorFor(port: Port): DeviceUpdate.Motor? = _telemetry.value.motors[port]
 
     private companion object {
         const val TAG = "AppController"

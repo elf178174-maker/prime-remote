@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.primeremote.app.AppController
+import dev.primeremote.app.ble.HubSession
 import dev.primeremote.app.ui.theme.Accent
 import dev.primeremote.app.ui.theme.Surface1
 import dev.primeremote.app.ui.theme.TextDim
@@ -45,8 +46,9 @@ import dev.primeremote.core.model.StopMode
  */
 @Composable
 fun ConsoleScreen(controller: AppController, onBack: () -> Unit) {
-    val session by controller.session.collectAsState()
-    val lines = session?.console?.collectAsState()?.value.orEmpty()
+    val phase by controller.phase.collectAsState()
+    val lines by controller.console.collectAsState()
+    val connected = phase !is HubSession.Phase.Idle
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
@@ -58,7 +60,7 @@ fun ConsoleScreen(controller: AppController, onBack: () -> Unit) {
         title = "Hub console",
         onBack = onBack,
         actions = {
-            TextButton(onClick = { session?.clearConsole() }) { Text("Clear") }
+            TextButton(onClick = { controller.clearConsole() }) { Text("Clear") }
         },
     ) { padding ->
         Column(
@@ -67,7 +69,7 @@ fun ConsoleScreen(controller: AppController, onBack: () -> Unit) {
                 .padding(padding)
                 .padding(horizontal = 12.dp)
         ) {
-            if (session == null) {
+            if (!connected) {
                 Hint("Connect to a hub to see its output.")
             }
 
@@ -104,7 +106,7 @@ fun ConsoleScreen(controller: AppController, onBack: () -> Unit) {
                 )
                 IconButton(
                     onClick = {
-                        session?.sendRaw(input)
+                        controller.sendRaw(input)
                         input = ""
                     }
                 ) {
@@ -117,11 +119,11 @@ fun ConsoleScreen(controller: AppController, onBack: () -> Unit) {
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                QuickCommand("Stop all", HubCommands.stopAll(), session != null) { session?.sendRaw(it) }
-                QuickCommand("A 30%", HubCommands.run(Port.A, 300), session != null) { session?.sendRaw(it) }
-                QuickCommand("A stop", HubCommands.stop(Port.A, StopMode.BRAKE), session != null) { session?.sendRaw(it) }
-                QuickCommand("Beep", HubCommands.beep(660, 200, 100), session != null) { session?.sendRaw(it) }
-                QuickCommand("Version", HubCommands.version(), session != null) { session?.sendRaw(it) }
+                QuickCommand("Stop all", HubCommands.stopAll(), connected, controller::sendRaw)
+                QuickCommand("A 30%", HubCommands.run(Port.A, 300), connected, controller::sendRaw)
+                QuickCommand("A stop", HubCommands.stop(Port.A, StopMode.BRAKE), connected, controller::sendRaw)
+                QuickCommand("Beep", HubCommands.beep(660, 200, 100), connected, controller::sendRaw)
+                QuickCommand("Version", HubCommands.version(), connected, controller::sendRaw)
             }
             Spacer(Modifier.width(1.dp))
             Hint("Commands are listed in the README under \"the wire protocol\".")
