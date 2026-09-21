@@ -81,6 +81,10 @@ The repository builds an APK in GitHub Actions on every push.
 3. Copy `app-debug.apk` to your phone and open it. Android will ask you to allow
    installing from this source.
 
+Downloading a workflow artifact needs a GitHub login, which is awkward on a phone. For a
+plain download link instead, run the **Release** workflow once (Actions → Release → Run
+workflow); it builds the same APK and attaches it to a GitHub release.
+
 To build it yourself you need the Android SDK (platform 35) and JDK 17:
 
 ```bash
