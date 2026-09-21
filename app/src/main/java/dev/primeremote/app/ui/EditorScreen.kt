@@ -145,6 +145,7 @@ fun EditorScreen(
                     draft = draft,
                     pageIndex = pageIndex,
                     selected = selected,
+                    onTestMotor = { port, speed -> controller.testMotor(port, speed) },
                     onAddControl = { type ->
                         val created = newControl(type, page.controls.size)
                         updatePage { p -> p.copy(controls = p.controls + created) }
@@ -346,6 +347,7 @@ private fun EditorPanel(
     draft: Profile,
     pageIndex: Int,
     selected: ControlSpec?,
+    onTestMotor: (Port, Int) -> Unit,
     onAddControl: (ControlType) -> Unit,
     onUpdateControl: (ControlSpec) -> Unit,
     onDeleteControl: (String) -> Unit,
@@ -416,6 +418,7 @@ private fun EditorPanel(
             ControlInspector(
                 control = selected,
                 pageCount = draft.pages.size,
+                onTest = onTestMotor,
                 onChange = onUpdateControl,
                 onDelete = { onDeleteControl(selected.id) },
                 onDuplicate = { onDuplicateControl(selected) },
@@ -429,6 +432,7 @@ private fun EditorPanel(
 private fun ControlInspector(
     control: ControlSpec,
     pageCount: Int,
+    onTest: (Port, Int) -> Unit,
     onChange: (ControlSpec) -> Unit,
     onDelete: () -> Unit,
     onDuplicate: () -> Unit,
@@ -552,6 +556,7 @@ private fun ControlInspector(
         ActionDialog(
             initial = actions.getOrNull(editingActionIndex),
             pageCount = pageCount,
+            onTest = onTest,
             onDismiss = {
                 editingSlot = null
                 editingActionIndex = -1

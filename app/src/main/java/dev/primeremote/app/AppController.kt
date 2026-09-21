@@ -15,6 +15,8 @@ import dev.primeremote.core.engine.ControlEngine
 import dev.primeremote.core.model.Port
 import dev.primeremote.core.model.Profile
 import dev.primeremote.core.model.Slot
+import dev.primeremote.core.model.StopMode
+import dev.primeremote.core.protocol.HubCommands
 import dev.primeremote.core.protocol.DeviceUpdate
 import dev.primeremote.core.protocol.InfoResponse
 import kotlinx.coroutines.CoroutineScope
@@ -359,6 +361,19 @@ class AppController(private val context: Context) {
 
     fun axis(controlId: String, slot: Slot, value: Float) {
         engine.setAxis(controlId, slot, value)
+    }
+
+    /**
+     * Run a motor briefly at the given percentage.
+     *
+     * Working out which way round a motor is mounted is guesswork until you see it move,
+     * so the editor can nudge one while you are setting a binding up.
+     */
+    fun testMotor(port: Port, speedPercent: Int, ms: Int = 800) {
+        val velocity = (speedPercent.coerceIn(-100, 100) / 100f * engine.maxVelocityFor(port)).toInt()
+        _session.value?.sendCommands(
+            listOf(HubCommands.runForTime(port, ms, velocity, StopMode.BRAKE))
+        )
     }
 
     fun panicStop() {

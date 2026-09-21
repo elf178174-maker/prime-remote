@@ -173,8 +173,14 @@ private fun ModePicker(mode: DriveMode, onChange: (DriveMode) -> Unit) =
 
 /** The per-action parameter form. */
 @Composable
-fun ActionFields(action: Action, pageCount: Int, onChange: (Action) -> Unit) {
+fun ActionFields(
+    action: Action,
+    pageCount: Int,
+    onTest: ((Port, Int) -> Unit)? = null,
+    onChange: (Action) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        TestMotorButton(action, onTest)
         when (action) {
             is Action.MotorRun -> {
                 PortPicker("Motor", action.port) { onChange(action.copy(port = it)) }
@@ -269,15 +275,37 @@ fun ActionFields(action: Action, pageCount: Int, onChange: (Action) -> Unit) {
                 }
             }
 
-            is Action.Macro -> MacroEditor(action, pageCount, onChange)
+            is Action.Macro -> MacroEditor(action, pageCount, onTest, onChange)
 
             Action.StopAll, Action.MatrixClear -> Hint("Nothing to configure.")
         }
     }
 }
 
+/** Nudges the motor an action refers to, so you can see which way it turns. */
 @Composable
-private fun MacroEditor(macro: Action.Macro, pageCount: Int, onChange: (Action) -> Unit) {
+private fun TestMotorButton(action: Action, onTest: ((Port, Int) -> Unit)?) {
+    if (onTest == null) return
+    val target: Pair<Port, Int>? = when (action) {
+        is Action.MotorRun -> action.port to action.speed
+        is Action.AxisMotor -> action.port to action.scale
+        is Action.MotorRunForTime -> action.port to action.speed
+        is Action.MotorRunForDegrees -> action.port to action.speed
+        is Action.MotorToPosition -> action.port to action.speed
+        else -> null
+    } ?: return
+    OutlinedButton(onClick = { onTest(target.first, target.second) }) {
+        Text("Test: run ${target.first.letter} briefly")
+    }
+}
+
+@Composable
+private fun MacroEditor(
+    macro: Action.Macro,
+    pageCount: Int,
+    onTest: ((Port, Int) -> Unit)?,
+    onChange: (Action) -> Unit,
+) {
     var adding by remember { mutableStateOf(false) }
     var editingIndex by remember { mutableStateOf(-1) }
 
@@ -315,6 +343,7 @@ private fun MacroEditor(macro: Action.Macro, pageCount: Int, onChange: (Action) 
             initial = null,
             pageCount = pageCount,
             allowMacro = false,
+            onTest = onTest,
             onDismiss = { adding = false },
             onConfirm = { action ->
                 onChange(macro.copy(steps = macro.steps + MacroStep(action, 500)))
@@ -329,6 +358,7 @@ private fun MacroEditor(macro: Action.Macro, pageCount: Int, onChange: (Action) 
             initial = step.action,
             pageCount = pageCount,
             allowMacro = false,
+            onTest = onTest,
             onDismiss = { editingIndex = -1 },
             onConfirm = { action ->
                 val updated = macro.steps.toMutableList()
@@ -346,6 +376,7 @@ fun ActionDialog(
     initial: Action?,
     pageCount: Int,
     allowMacro: Boolean = true,
+    onTest: ((Port, Int) -> Unit)? = null,
     onDismiss: () -> Unit,
     onConfirm: (Action) -> Unit,
 ) {
@@ -373,7 +404,7 @@ fun ActionDialog(
                 )
                 Hint(kinds.getOrNull(kindIndexOf(action))?.hint.orEmpty())
                 Spacer(Modifier.width(1.dp))
-                ActionFields(action, pageCount) { action = it }
+                ActionFields(action, pageCount, onTest) { action = it }
             }
         },
         confirmButton = {
