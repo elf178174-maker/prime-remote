@@ -286,7 +286,7 @@ fun ActionFields(
 @Composable
 private fun TestMotorButton(action: Action, onTest: ((Port, Int) -> Unit)?) {
     if (onTest == null) return
-    val target: Pair<Port, Int>? = when (action) {
+    val target = when (action) {
         is Action.MotorRun -> action.port to action.speed
         is Action.AxisMotor -> action.port to action.scale
         is Action.MotorRunForTime -> action.port to action.speed

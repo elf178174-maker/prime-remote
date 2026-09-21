@@ -85,6 +85,13 @@ jobs:
             app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
+      # Repeat the errors at the very end of the job so they are easy to find.
+      - name: Errors
+        if: failure()
+        run: |
+          [ -f errors.txt ] && cat errors.txt
+          exit 0
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
