@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    id("org.jetbrains.kotlin.jvm")
-    id("org.jetbrains.kotlin.plugin.serialization")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // No jvmToolchain() on purpose: the module then compiles with whatever JDK runs Gradle

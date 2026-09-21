@@ -34,8 +34,11 @@ fun requiredPermissions(): Array<String> =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
     } else {
+        // Before Android 12, scanning for BLE devices counted as a location capability,
+        // and the platform wants both precisions requested together.
         arrayOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.BLUETOOTH,
             Manifest.permission.BLUETOOTH_ADMIN,
         )
