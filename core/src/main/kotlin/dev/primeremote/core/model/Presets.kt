@@ -101,7 +101,11 @@ object Presets {
             id = newId("p"),
             name = "Arcade drive",
             pages = listOf(Page(newId("pg"), "Main", listOf(stick, toolUp, toolDown, spin, horn, stop))),
-            settings = ProfileSettings(drivePair = DrivePair(Port.A, Port.B)),
+            // Motors are driven individually rather than as a hardware pair: pairing needs
+            // motors actually plugged into both of those ports, and a layout that does
+            // nothing at all on a robot wired differently is a bad first impression.
+            // Turn it on in the layout settings once the ports are right.
+            settings = ProfileSettings(),
         )
     }
 

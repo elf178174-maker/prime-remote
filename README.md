@@ -239,5 +239,11 @@ and STOP button still work.
 **One side of the robot drives backwards.** Flip the sign of that motor's amount in the
 binding (100 → -100).
 
+**I turned on the synchronized drive pair and now nothing moves.** Pairing needs motors
+plugged into both of the ports it names. If they are not there the console shows
+`!er pr …` and every drive command after it fails. Either fix the ports in the layout
+settings or switch pairing off — driving the motors individually works whatever is
+plugged in where.
+
 **The robot keeps moving after I let go.** Check the watchdog is not set to 0 in the
 layout settings, and that the binding's stop mode is brake rather than continue.
