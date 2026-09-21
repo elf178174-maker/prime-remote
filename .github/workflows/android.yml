@@ -33,11 +33,37 @@ jobs:
       - name: Unit tests
         run: ./gradlew :core:test --stacktrace
 
+      # The build output is filtered down to the compiler errors: a failing Gradle run
+      # buries them under hundreds of lines of stack trace.
       - name: Build the debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: |
+          ./gradlew :app:assembleDebug > build.log 2>&1 || true
+          sed 's|file:///home/runner/work/prime-remote/prime-remote/||' build.log \
+            | grep -E "^(e:|w: .*error)" | head -150 > errors.txt || true
+          if [ -s errors.txt ]; then
+            echo "=================== COMPILER ERRORS ==================="
+            cat errors.txt
+            exit 1
+          fi
+          if ! grep -q "BUILD SUCCESSFUL" build.log; then
+            echo "=================== BUILD FAILED ==================="
+            grep -A 20 "What went wrong" build.log | head -60
+            tail -40 build.log
+            exit 1
+          fi
+          echo "debug APK built"
 
       - name: Build the release APK
-        run: ./gradlew :app:assembleRelease --stacktrace
+        run: |
+          ./gradlew :app:assembleRelease > release.log 2>&1 || true
+          if ! grep -q "BUILD SUCCESSFUL" release.log; then
+            echo "=================== RELEASE BUILD FAILED ==================="
+            sed 's|file:///home/runner/work/prime-remote/prime-remote/||' release.log \
+              | grep -E "^(e:|w: .*error)" | head -100
+            grep -A 20 "What went wrong" release.log | head -60
+            exit 1
+          fi
+          echo "release APK built"
 
       - name: Upload the APKs
         uses: actions/upload-artifact@v4
