@@ -1,0 +1,277 @@
+{
+ "_generated_by": "tools/gen_golden_vectors.py against LEGO/spike-prime-docs",
+ "cobs": [
+  {
+   "raw": "",
+   "encoded": "03",
+   "packed": "0002"
+  },
+  {
+   "raw": "00",
+   "encoded": "0303",
+   "packed": "000002"
+  },
+  {
+   "raw": "01",
+   "encoded": "5703",
+   "packed": "540002"
+  },
+  {
+   "raw": "02",
+   "encoded": "ab03",
+   "packed": "a80002"
+  },
+  {
+   "raw": "03",
+   "encoded": "0403",
+   "packed": "070002"
+  },
+  {
+   "raw": "000000",
+   "encoded": "03030303",
+   "packed": "0000000002"
+  },
+  {
+   "raw": "01020304",
+   "encoded": "57ab050304",
+   "packed": "54a806000702"
+  },
+  {
+   "raw": "68656c6c6f20776f726c64",
+   "encoded": "0e68656c6c6f20776f726c64",
+   "packed": "0d6b666f6f6c23746c716f6702"
+  },
+  {
+   "raw": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+   "encoded": "0357abff030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f50515253545556ff5758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaffabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfe04ff",
+   "packed": "0054a8fc00070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c23222120272625242b2a29282f2e2d2c33323130373635343b3a39383f3e3d3c43424140474645444b4a49484f4e4d4c53525150575655fc545b5a59585f5e5d5c63626160676665646b6a69686f6e6d6c73727170777675747b7a79787f7e7d7c83828180878685848b8a89888f8e8d8c93929190979695949b9a99989f9e9d9ca3a2a1a0a7a6a5a4abaaa9fca8afaeadacb3b2b1b0b7b6b5b4bbbab9b8bfbebdbcc3c2c1c0c7c6c5c4cbcac9c8cfcecdccd3d2d1d0d7d6d5d4dbdad9d8dfdedddce3e2e1e0e7e6e5e4ebeae9e8efeeedecf3f2f1f0f7f6f5f4fbfaf9f8fffefd07fc02"
+  },
+  {
+   "raw": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+   "encoded": "56ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+   "packed": "55fcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc02"
+  },
+  {
+   "raw": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+   "encoded": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff03",
+   "packed": "fcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc0002"
+  },
+  {
+   "raw": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+   "encoded": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff04ff",
+   "packed": "fcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc07fc02"
+  },
+  {
+   "raw": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+   "encoded": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff23ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+   "packed": "fcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc20fcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc02"
+  },
+  {
+   "raw": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+   "encoded": "03030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303",
+   "packed": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002"
+  },
+  {
+   "raw": "020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202",
+   "encoded": "abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab03",
+   "packed": "a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a80002"
+  },
+  {
+   "raw": "00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff02020202020202020202020202020202020202020202020202020202020202020202020202020202",
+   "encoded": "03030303030303030303030303030303030303030303030303030303030303030303030303030303ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbbffffffffffffffffffffffffffffffffababababababababababababababababababababababababababababababababababababababab03",
+   "packed": "00000000000000000000000000000000000000000000000000000000000000000000000000000000fcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcb8fcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfca8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a80002"
+  },
+  {
+   "raw": "7b1261271750c2b260a9a724b79223cf650e65d992ed4011de1c8860d9fc685d571f46a7cac317626314e33ff917f19260d244135ea3c3040140e87650c6455c3db050c487c4884d0a5d72054fb239a48de8f187266937e4cef84390916221851be25791f4a5341b3a1a46796c89f21bc2979ee646007f0dc01f21e6658ae19fc65efecaafc4db2b55cfc424b5903dd7e9ae737afa3c1722073602994dfc5ae5518c50ae135b049ca0c4cda0ead6ed0a906588cb3dd22266085a70f1bd22ed35596570d03142d36bbb4b24427c4a110d2d1b51d31d868034f2d7d16b4f32b3bfd23d14c79f92379c1b89df1470e865eebd715ddc5a3f787cf815e9a87d7f8d0b30163f86d1c1f653af1666bdeb30dd75fda055ec44fa6e0be8f7e891d82af64c710bd0cdf280cd676311220f",
+   "encoded": "8f7b1261271750c2b260a9a724b79223cf650e65d992ed4011de1c8860d9fc685d571f46a7cac317626314e33ff917f19260d244135ea3c3043f40e87650c6455c3db050c487c4884d0a5d72054fb239a48de8f187266937e4cef84390916221851be25791f4a5341b3a1a46796c89f21bc2979ee646cf7f0dc01f21e6658ae19fc65efecaafc4db2b55cfc424b5903dd7e9ae737afa3c17220736ff994dfc5ae5518c50ae135b049ca0c4cda0ead6ed0a906588cb3dd22266085a70f1bd22ed35596570d03142d36bbb4b24427c4a110d2d1b51d31d868034f2d7d16b4f32b3bfd23d14c79f92379c1b89df1470e86540eebd715ddc5a3f787cf815e9a87d7f8d0b30163f86d1c1f653af1666bdeb30dd75fda055ec44fa6e0be8f7e891d82af64c710bd0cdf280cd676311220f",
+   "packed": "8c781162241453c1b163aaa427b49120cc660d66da91ee4312dd1f8b63daff6b5e541c45a4c9c014616017e03cfa14f29163d147105da0c0073c43eb7553c5465f3eb353c784c78b4e095e71064cb13aa78eebf284256a34e7cdfb40939261228618e15492f7a637183919457a6f8af118c1949de545cc7c0ec31c22e56689e29cc55dfdc9acc7d82856ccc727b6933ed4eaad7079f93f14210435fc9a4eff59e6528f53ad1058079fa3c7cea3e9d5ee0993668bc83ed121650b5973f2be21ee365a6673d33241d068b84827417f49120e2e1852d01e858337f1d4d2684c31b0bcd13e17c49c91349f188adc1773eb6643edbe725edf593c7b7ffb16eaab7e7c8e0833153c85d2c2f550ac1565bee833de76fea356ef47f96d08ebf4eb92db29f54f7208d3cef183ce646012210c02"
+  },
+  {
+   "raw": "0002030300020202030100030303020300010101000303030302030103000202030302010003010203030302010000030203000302020103030000010300000002000300010303030001010001020002030203030300030303000202020100030003030203020100000103010100020300010000000202020202010003020002010300030000010300030002020103030103030100010303030000010001030302000100030001020302010002020003020303030201000002010301030101020301020003000103030001020000030203030202010002010201030303020101030200020200030301030302010100000003030000030200020200000103030300030003000001010003020300010202030101020202000102010301030100000302010203000103020101030103010202000200030200030102010201000301010101030203030301010202030200010301010102000201030002010200030001030301030101020300000103030300030203000200000201010203010102010103030200010202000302010102010203000101000100010201010003010303010201000300000303020100020003030101020101020203030101010002010300010000020202030200010000020001010302020303000000020100020301010103000303000102020201020003000000010000020203000201000100010101",
+   "encoded": "03ab050303ababab580303ae030303040357575703af0303030358030403ababad030357035803abae030303570303ac030403ac03ab57050303035704030303ab030403570603030357570357ab03abac030603030306030303ababab57030403ad0303ac035703035758035703ab040357030303ababababab5703ac0303ab5704030403035704030403abab5759030359030303570603030303570357ad0303035703040357abac035703abab03ac03ae030303570303ab575803580357ab5803ab0304035705030357ab0303ac03ad0303ab5703ab57ab57ae0303035757ac0303abab03590303ad0303575703030305030303ac0303abab030357060303030403040303575703ac03040357abab580357ababab0357ab57580358030303ac0357ab040357ac03575758035803abab03ab03ac03035803ab57ab57035803575757ac035a03030357ababac03035758035757ab03ab570403ab57ab03040357590303580357ab0403035706030303ac030403ab0303ab5757ab580357ab5757ad03030357abab03ac035757ab57ab0403575703570357ab5757035803590303ab5703040303ad03035703ab0359030357ab5757abab590303575703ab570403570303abababac0303570303ab035757ac03ab0503030303ab5703ab58035757040305030357ababab57ab0304030303570303abab0403ab5703570357575703",
+   "packed": "00a8060000a8a8a85b0000ad000000070054545400ac000000005b000700a8a8ae000054005b00a8ad000000540000af000700af00a854060000005407000000a8000700540500000054540054a800a8af000500000005000000a8a8a854000700ae0000af00540000545b005400a8070054000000a8a8a8a8a85400af0000a85407000700005407000700a8a8545a00005a000000540500000000540054ae0000005400070054a8af005400a8a800af00ad000000540000a8545b005b0054a85b00a80007005406000054a80000af00ae0000a85400a854a854ad0000005454af0000a8a8005a0000ae0000545400000006000000af0000a8a8000054050000000700070000545400af00070054a8a85b0054a8a8a80054a8545b005b000000af0054a8070054af0054545b005b00a8a800a800af00005b00a854a854005b00545454af005900000054a8a8af0000545b005454a800a8540700a854a8000700545a00005b0054a80700005405000000af000700a80000a85454a85b0054a85454ae00000054a8a800af005454a854a80700545400540054a85454005b005a0000a85400070000ae00005400a8005a000054a85454a8a85a0000545400a8540700540000a8a8a8af0000540000a8005454af00a80600000000a85400a85b005454070006000054a8a8a854a80007000000540000a8a80700a8540054005454540002"
+  },
+  {
+   "raw": "00aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa02",
+   "encoded": "03feaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa03",
+   "packed": "00fda9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a90002"
+  },
+  {
+   "raw": "3210006d762041203530303b6d762042202d3530303b",
+   "encoded": "053210166d762041203530303b6d762042202d3530303b",
+   "packed": "063113156e75234223363333386e752341232e3633333802"
+  }
+ ],
+ "crc": [
+  {
+   "data": "",
+   "seed": 0,
+   "align": 4,
+   "crc": 0
+  },
+  {
+   "data": "61",
+   "seed": 0,
+   "align": 4,
+   "crc": 2732478330
+  },
+  {
+   "data": "616263",
+   "seed": 0,
+   "align": 4,
+   "crc": 2807916624
+  },
+  {
+   "data": "61626364",
+   "seed": 0,
+   "align": 4,
+   "crc": 3984772369
+  },
+  {
+   "data": "6162636465",
+   "seed": 0,
+   "align": 4,
+   "crc": 2338359752
+  },
+  {
+   "data": "68656c6c6f20776f726c64",
+   "seed": 0,
+   "align": 4,
+   "crc": 1339937331
+  },
+  {
+   "data": "68656c6c6f20776f726c64",
+   "seed": 12345,
+   "align": 4,
+   "crc": 3996620218
+  },
+  {
+   "data": "4009a51750bf21f15f8dd6237d780017e2d17c8dde9578faa22b9c5ced6eb99ecc4aa1d860f96b84e6b1d38af197fce489c8868c042259677da14ab8a17d44369139c827fb47b2f0008bb4ccad176150c5403b0b3e46d4a11d9b184c20a0dad3f2d5aced",
+   "seed": 0,
+   "align": 4,
+   "crc": 160194126
+  },
+  {
+   "data": "5d3b451113ced30ef2c7647e774d2d906a31fe3a59bc3bc8ee6936b36501897391cdf4cfa96ec47473cbd1028a302ca80cbd004392368407a93cfa1d977a1963f8c3bd5afe6b4da6a5be75fecdde1619cd3451a068847a420bbb00488549ee2bcf1fc07fe6",
+   "seed": 3735928559,
+   "align": 4,
+   "crc": 46413404
+  },
+  {
+   "data": "b5097333da7a681524bd78f6f7b180e9647fab2d48588d904de85266e8093ab4fad9d1dc77e3f00ff2176c0243a81bc93d0746fef8a2664e5658fdee90e8d393378db8ace25f46209dd111194d2634a065faabdd9905103b27cca5efd8de8b0569758dc25bdfbf58f413b72129cdb2d1e08634adc61f290e482d3094e0c8bc6d6572fd50d700f435c5f9b6dc19aa262e4f1ced23290c90a4e25ab266fa7bcace309c96566ed17e6a1f43f738bf2511774e4663b7ffb9eed315b9397e57ed10dc4b68cd2923d9f0d4414981129d0f7cb9ad1460158ae963bea24d30b8fb32f3f6d52f17323ab04ed5670ce9211e3d9cadc91d3aa4cb2e67d45f972e280fc20b",
+   "seed": 987654321,
+   "align": 4,
+   "crc": 4209827579
+  },
+  {
+   "data": "696d706f72742072756e6c6f6f700a7072696e742827686927290a",
+   "seed": 0,
+   "align": 4,
+   "crc": 2645309114
+  }
+ ],
+ "messages": [
+  {
+   "name": "InfoRequest",
+   "payload": "00",
+   "framed": "000002"
+  },
+  {
+   "name": "ClearSlotRequest(slot=3)",
+   "payload": "4603",
+   "framed": "06450002"
+  },
+  {
+   "name": "StartFileUploadRequest(program.py, slot=19, crc=0x12345678)",
+   "payload": "0c70726f6772616d2e7079001378563412",
+   "framed": "0d0f73716c6471626e2d737a0b107b55371102"
+  },
+  {
+   "name": "TransferChunkRequest(crc=0xAABBCCDD)",
+   "payload": "10ddccbbaa0f00696d706f72742072756e6c6f6f700a",
+   "framed": "0a13decfb8a90c116a6e736c71772371766d6f6c6c730902"
+  },
+  {
+   "name": "ProgramFlowRequest(start, slot=19)",
+   "payload": "1e0013",
+   "framed": "071d071002"
+  },
+  {
+   "name": "ProgramFlowRequest(stop, slot=19)",
+   "payload": "1e0113",
+   "framed": "5b1d071002"
+  },
+  {
+   "name": "DeviceNotificationRequest(200ms)",
+   "payload": "28c800",
+   "framed": "062bcb0002"
+  },
+  {
+   "name": "TunnelMessage",
+   "payload": "3213006d762041203530303b6d762042202d3530303b",
+   "framed": "063110156e75234223363333386e752341232e3633333802"
+  },
+  {
+   "name": "SetHubNameRequest",
+   "payload": "16526f7665720000000000000000000000000000000000000000000000000000",
+   "framed": "0a15516c756671000000000000000000000000000000000000000000000000000002"
+  },
+  {
+   "name": "GetHubNameRequest",
+   "payload": "18",
+   "framed": "071b02"
+  },
+  {
+   "name": "DeviceUuidRequest",
+   "payload": "1a",
+   "framed": "071902"
+  }
+ ],
+ "responses": [
+  {
+   "name": "InfoResponse",
+   "payload": "01010000000304030014002e0120010000",
+   "framed": "54540000000500070007175b2d5b2300000002"
+  },
+  {
+   "name": "ClearSlotResponse(ok)",
+   "payload": "4700",
+   "framed": "07440002"
+  },
+  {
+   "name": "StartFileUploadResponse(ok)",
+   "payload": "0d00",
+   "framed": "070e0002"
+  },
+  {
+   "name": "TransferChunkResponse(fail)",
+   "payload": "1101",
+   "framed": "5b120002"
+  },
+  {
+   "name": "ProgramFlowResponse(ok)",
+   "payload": "1f00",
+   "framed": "071c0002"
+  },
+  {
+   "name": "ProgramFlowNotification(stop)",
+   "payload": "2001",
+   "framed": "5b230002"
+  },
+  {
+   "name": "ConsoleNotification",
+   "payload": "2121726479203120706f6c6c0000",
+   "framed": "0c222271677a233223736c6f6f000002"
+  },
+  {
+   "name": "DeviceNotificationResponse(ok)",
+   "payload": "2900",
+   "framed": "072a0002"
+  },
+  {
+   "name": "DeviceNotification",
+   "payload": "3c400000570100015a00fdff04000a001400d4030100feff03000a00312d00f4012ad20400000a0130d3ff0cfed62efbffff0b0237010c03092c01640078000d048900",
+   "framed": "063f43005b540054075905fefc07070907175ad7000005fdfc00070906322e5bf70529d107005b09b533d0fc0ffdd52df8fcfc085b34580f000a2f0767077b050e078a0002"
+  }
+ ]
+}
