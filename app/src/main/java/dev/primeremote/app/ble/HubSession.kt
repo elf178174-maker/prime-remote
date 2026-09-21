@@ -109,6 +109,17 @@ class HubSession(
     private var pingJob: Job? = null
     private var pingSequence = 0
     private var pingSentAtMs = 0L
+    private var lastSentAtMs = 0L
+
+    /**
+     * How long the link may stay silent before a ping is sent.
+     *
+     * This has to be comfortably shorter than the hub's watchdog: the control engine only
+     * sends what has changed, so holding a joystick perfectly still produces no traffic at
+     * all, and without a keepalive the hub would decide the phone had gone away and stop
+     * the motors mid-drive.
+     */
+    private var keepAliveMs = 1000L
 
     /** Set when the hub's own safety watchdog has stopped the motors. */
     private val _watchdogTripped = MutableStateFlow(false)
@@ -154,6 +165,12 @@ class HubSession(
                 MessageId.DEVICE_NOTIFICATION_RESPONSE,
                 HANDSHAKE_TIMEOUT_MS,
             )
+        }
+
+        keepAliveMs = if (settings.watchdogMs > 0) {
+            (settings.watchdogMs / 2L).coerceIn(150L, 1000L)
+        } else {
+            1000L
         }
 
         val slot = settings.hubSlot.coerceIn(0, 19)
@@ -209,6 +226,7 @@ class HubSession(
         for (payload in HubCommands.frame(commands, maxCommandPayload())) {
             connection.send(TunnelMessage(payload))
         }
+        lastSentAtMs = SystemClock.elapsedRealtime()
         if (_watchdogTripped.value) _watchdogTripped.value = false
     }
 
@@ -221,9 +239,11 @@ class HubSession(
     }
 
     private fun maxCommandPayload(): Int {
-        val info = _hubInfo.value?.maxPacketSize ?: 20
+        // A frame is split across as many packets as it needs, so the limit that matters
+        // is the largest message the hub will accept, not the largest single write.
+        val maxMessage = _hubInfo.value?.maxMessageSize ?: 64
         // Leave room for the message header, COBS overhead and the frame delimiter.
-        return (info - 8).coerceIn(12, 240)
+        return (maxMessage - 16).coerceIn(16, 200)
     }
 
     // ----------------------------------------------------------------------- upload
@@ -336,6 +356,10 @@ class HubSession(
     }
 
     private fun onConsole(text: String) {
+        // Every piece is parsed as it arrives, including a fragment with no trailing
+        // newline: whether the firmware includes the newline from print() is not something
+        // to bet the handshake on, and the cost of being wrong the other way is only that a
+        // very long line could appear in the log as two.
         for (raw in text.split('\n')) {
             val line = raw.trim()
             if (line.isEmpty()) continue
@@ -398,10 +422,12 @@ class HubSession(
 
     private fun startPingLoop() {
         if (pingJob != null) return
+        lastSentAtMs = SystemClock.elapsedRealtime()
         pingJob = scope.launch {
             while (true) {
-                delay(PING_INTERVAL_MS)
+                delay(PING_TICK_MS)
                 if (_phase.value != Phase.Ready) continue
+                if (SystemClock.elapsedRealtime() - lastSentAtMs < keepAliveMs) continue
                 pingSequence = (pingSequence + 1) and 0xFFFF
                 pingSentAtMs = SystemClock.elapsedRealtime()
                 sendCommands(listOf(HubCommands.ping(pingSequence)))
@@ -446,7 +472,7 @@ class HubSession(
         const val CONNECT_TIMEOUT_MS = 20_000L
         const val HANDSHAKE_TIMEOUT_MS = 5_000L
         const val SHORT_TIMEOUT_MS = 1_500L
-        const val PING_INTERVAL_MS = 1_000L
+        const val PING_TICK_MS = 100L
         const val MAX_CONSOLE_LINES = 400
     }
 }

@@ -65,6 +65,17 @@ jobs:
           fi
           echo "release APK built"
 
+      # Lint is where API-level mistakes and missing permission checks show up, which
+      # matters here because the app cannot be run in CI.
+      - name: Lint
+        run: |
+          ./gradlew :app:lintDebug > lint.log 2>&1 || true
+          if [ -f app/build/reports/lint-results-debug.txt ]; then
+            head -120 app/build/reports/lint-results-debug.txt
+          else
+            tail -40 lint.log
+          fi
+
       - name: Upload the APKs
         uses: actions/upload-artifact@v4
         with:

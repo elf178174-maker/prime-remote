@@ -100,6 +100,8 @@ class AppController(private val context: Context) {
     private var connectJob: Job? = null
     private var commandsSentInWindow = 0
     private var windowStartedAtMs = 0L
+    private var reconnectAttempts = 0
+    private var userDisconnected = false
 
     private fun initialProfile(): Profile {
         val all = repository.profiles.value
@@ -144,7 +146,10 @@ class AppController(private val context: Context) {
 
     fun connect(device: BluetoothDevice) {
         if (connectJob?.isActive == true) return
+        val retrying = reconnectAttempts > 0
         disconnect()
+        userDisconnected = false
+        if (!retrying) reconnectAttempts = 0
         scanner.stop()
         val session = HubSession(context, device, scope) { readHubProgram() }
         _session.value = session
@@ -162,6 +167,7 @@ class AppController(private val context: Context) {
             }
             _connecting.value = false
             if (ok) {
+                reconnectAttempts = 0
                 preferences.lastHubAddress = device.address
                 preferences.setProgramVersion(device.address, HubProgram.VERSION)
                 _status.value = "Connected to ${session.deviceName}"
@@ -182,6 +188,7 @@ class AppController(private val context: Context) {
     }
 
     fun disconnect() {
+        userDisconnected = true
         connectJob?.cancel()
         connectJob = null
         stopSenderLoop()
@@ -221,12 +228,41 @@ class AppController(private val context: Context) {
                 }
             }
         }
-        mirrorJobs += scope.launch { session.phase.collect { _phase.value = it } }
+        mirrorJobs += scope.launch {
+            session.phase.collect { phase ->
+                _phase.value = phase
+                if (phase is HubSession.Phase.Failed) onConnectionLost(phase.reason)
+            }
+        }
         mirrorJobs += scope.launch { session.console.collect { _console.value = it } }
         mirrorJobs += scope.launch { session.hubInfo.collect { _hubInfo.value = it } }
         mirrorJobs += scope.launch { session.latencyMs.collect { _latencyMs.value = it } }
         mirrorJobs += scope.launch { session.hubInputMode.collect { _hubInputMode.value = it } }
         mirrorJobs += scope.launch { session.watchdogTripped.collect { _watchdogTripped.value = it } }
+    }
+
+    /**
+     * Something went wrong after a successful connection. Stop driving, say so, and offer
+     * to get back on: a dropped connection mid-drive is the normal case outdoors, not an
+     * error the user should have to go back to the home screen to recover from.
+     */
+    private fun onConnectionLost(reason: String) {
+        stopSenderLoop()
+        _status.value = reason
+        val address = _session.value?.device?.address ?: return
+        if (!preferences.autoReconnect || userDisconnected) return
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            _status.value = "$reason — reconnect from the home screen"
+            return
+        }
+        reconnectAttempts++
+        scope.launch {
+            delay(RECONNECT_DELAY_MS)
+            if (userDisconnected || _phase.value == HubSession.Phase.Ready) return@launch
+            val device = scanner.deviceFor(address) ?: return@launch
+            _status.value = "Reconnecting (attempt $reconnectAttempts)…"
+            connect(device)
+        }
     }
 
     private fun stopMirrors() {
@@ -344,5 +380,7 @@ class AppController(private val context: Context) {
 
     private companion object {
         const val TAG = "AppController"
+        const val RECONNECT_DELAY_MS = 2_000L
+        const val MAX_RECONNECT_ATTEMPTS = 3
     }
 }
