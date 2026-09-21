@@ -3,15 +3,55 @@ name: Build
 on:
   push:
     branches: [ "**" ]
+  pull_request:
   workflow_dispatch:
 
 jobs:
-  probe:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Report toolchain
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test the hub program
+        run: python3 tools/test_hub_program.py
+
+      - name: Check the golden protocol vectors are current
         run: |
-          java -version
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          ls "$ANDROID_HOME/platforms" || true
+          git clone --depth 1 https://github.com/LEGO/spike-prime-docs /tmp/spike-prime-docs
+          python3 tools/gen_golden_vectors.py /tmp/spike-prime-docs/examples/python
+          git diff --exit-code core/src/test/resources/golden_vectors.json
+
+      - name: Unit tests
+        run: ./gradlew :core:test --stacktrace
+
+      - name: Build the debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Build the release APK
+        run: ./gradlew :app:assembleRelease --stacktrace
+
+      - name: Upload the APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: prime-remote-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: core/build/reports/tests/
+          if-no-files-found: ignore

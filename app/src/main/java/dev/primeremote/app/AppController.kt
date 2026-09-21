@@ -1,0 +1,288 @@
+package dev.primeremote.app
+
+import android.bluetooth.BluetoothDevice
+import android.content.Context
+import android.os.SystemClock
+import android.util.Log
+import dev.primeremote.app.ble.BleScanner
+import dev.primeremote.app.ble.HubSession
+import dev.primeremote.app.ble.Telemetry
+import dev.primeremote.app.data.AppPreferences
+import dev.primeremote.app.data.ProfileRepository
+import dev.primeremote.core.HubProgram
+import dev.primeremote.core.engine.ControlEngine
+import dev.primeremote.core.model.Port
+import dev.primeremote.core.model.Profile
+import dev.primeremote.core.model.Slot
+import dev.primeremote.core.protocol.DeviceUpdate
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+
+/**
+ * The one place that knows about the robot, the layouts and the live control loop.
+ *
+ * It lives for as long as the process does, which is what you want for a remote control:
+ * rotating the phone or bouncing between screens must never drop the connection or leave
+ * a motor running.
+ */
+class AppController(private val context: Context) {
+
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    val scanner = BleScanner(context)
+    val repository = ProfileRepository(context)
+    val preferences = AppPreferences(context)
+
+    private val _session = MutableStateFlow<HubSession?>(null)
+    val session: StateFlow<HubSession?> = _session.asStateFlow()
+
+    private val _activeProfile = MutableStateFlow(initialProfile())
+    val activeProfile: StateFlow<Profile> = _activeProfile.asStateFlow()
+
+    private val _pageIndex = MutableStateFlow(0)
+    val pageIndex: StateFlow<Int> = _pageIndex.asStateFlow()
+
+    private val _status = MutableStateFlow("Not connected")
+    val status: StateFlow<String> = _status.asStateFlow()
+
+    private val _connecting = MutableStateFlow(false)
+    val connecting: StateFlow<Boolean> = _connecting.asStateFlow()
+
+    private val _commandRateHz = MutableStateFlow(0)
+    val commandRateHz: StateFlow<Int> = _commandRateHz.asStateFlow()
+
+    /** True while the controller screen is the visible one; the send loop only runs then. */
+    private var controllerActive = false
+
+    var engine = ControlEngine(_activeProfile.value)
+        private set
+
+    private var senderJob: Job? = null
+    private var connectJob: Job? = null
+    private var telemetryJob: Job? = null
+    private var commandsSentInWindow = 0
+    private var windowStartedAtMs = 0L
+
+    private fun initialProfile(): Profile {
+        val all = repository.profiles.value
+        val lastId = AppPreferences(context).lastProfileId
+        return all.firstOrNull { it.id == lastId } ?: all.first()
+    }
+
+    // ------------------------------------------------------------------- layouts
+
+    fun selectProfile(profile: Profile) {
+        _activeProfile.value = profile
+        preferences.lastProfileId = profile.id
+        engine.replaceProfile(profile)
+        _pageIndex.value = engine.pageIndex
+    }
+
+    /** Save an edited layout and keep the live engine in step with it. */
+    fun saveProfile(profile: Profile) {
+        repository.upsert(profile)
+        if (profile.id == _activeProfile.value.id) {
+            _activeProfile.value = profile
+            engine.replaceProfile(profile)
+            _pageIndex.value = engine.pageIndex
+            // Settings such as the watchdog or the drive pair have to be re-applied.
+            _session.value?.let { session ->
+                if (session.phase.value == HubSession.Phase.Ready) {
+                    session.sendCommands(engine.sessionInit())
+                }
+            }
+        }
+    }
+
+    fun setPage(index: Int) {
+        engine.setPage(index)
+        _pageIndex.value = engine.pageIndex
+        // Anything the old page was driving drops out of the engine's targets, so the
+        // next tick emits the stop commands for it.
+        flushIfIdle()
+    }
+
+    // --------------------------------------------------------------- connection
+
+    fun connect(device: BluetoothDevice) {
+        if (connectJob?.isActive == true) return
+        disconnect()
+        scanner.stop()
+        val session = HubSession(context, device, scope) { readHubProgram() }
+        _session.value = session
+        _connecting.value = true
+        _status.value = "Connecting…"
+
+        connectJob = scope.launch {
+            val known = preferences.programVersionFor(device.address)
+            val ok = try {
+                session.open(_activeProfile.value.settings, known)
+            } catch (e: Exception) {
+                Log.e(TAG, "connect failed", e)
+                false
+            }
+            _connecting.value = false
+            if (ok) {
+                preferences.lastHubAddress = device.address
+                preferences.setProgramVersion(device.address, HubProgram.VERSION)
+                _status.value = "Connected to ${session.deviceName}"
+                session.sendCommands(engine.sessionInit())
+                startTelemetryWatch(session)
+                if (controllerActive) startSenderLoop()
+            } else {
+                preferences.forgetProgramVersion(device.address)
+                _status.value = (session.phase.value as? HubSession.Phase.Failed)?.reason ?: "Could not connect"
+            }
+        }
+    }
+
+    fun reconnectLast(): Boolean {
+        val address = preferences.lastHubAddress ?: return false
+        val device = scanner.deviceFor(address) ?: return false
+        connect(device)
+        return true
+    }
+
+    fun disconnect() {
+        connectJob?.cancel()
+        connectJob = null
+        stopSenderLoop()
+        telemetryJob?.cancel()
+        telemetryJob = null
+        _session.value?.let { session ->
+            session.sendCommands(engine.panicStop())
+            session.closeAndStopProgram(_activeProfile.value.settings.hubSlot)
+        }
+        _session.value = null
+        _connecting.value = false
+        _status.value = "Not connected"
+    }
+
+    val isReady: Boolean
+        get() = _session.value?.phase?.value == HubSession.Phase.Ready
+
+    private fun readHubProgram(): ByteArray =
+        context.assets.open(HubProgram.ASSET_NAME).use { it.readBytes() }
+
+    private fun startTelemetryWatch(session: HubSession) {
+        telemetryJob?.cancel()
+        telemetryJob = scope.launch {
+            session.telemetry.collect { telemetry ->
+                // Knowing which motor is on which port lets percentages map onto the
+                // real top speed of that motor instead of a guess.
+                for ((port, motor) in telemetry.motors) {
+                    engine.setMotorType(port, motor.deviceType)
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------- control loop
+
+    fun onControllerVisible() {
+        controllerActive = true
+        if (isReady) startSenderLoop()
+    }
+
+    fun onControllerHidden() {
+        controllerActive = false
+        stopSenderLoop()
+        _session.value?.sendCommands(engine.panicStop())
+    }
+
+    fun onAppPaused() {
+        if (_activeProfile.value.settings.stopOnPause) {
+            _session.value?.sendCommands(engine.panicStop())
+        }
+        stopSenderLoop()
+    }
+
+    fun onAppResumed() {
+        if (controllerActive && isReady) startSenderLoop()
+    }
+
+    private fun startSenderLoop() {
+        if (senderJob?.isActive == true) return
+        val period = (1000L / _activeProfile.value.settings.sendRateHz.coerceIn(5, 50)).coerceAtLeast(20L)
+        senderJob = scope.launch {
+            windowStartedAtMs = SystemClock.elapsedRealtime()
+            commandsSentInWindow = 0
+            while (isActive) {
+                val now = SystemClock.elapsedRealtime()
+                val commands = engine.tick(now)
+                if (commands.isNotEmpty()) {
+                    _session.value?.sendCommands(commands)
+                    commandsSentInWindow += commands.size
+                }
+                engine.consumePageSwitch()?.let { requested ->
+                    engine.setPage(requested)
+                    _pageIndex.value = engine.pageIndex
+                }
+                if (now - windowStartedAtMs >= 1000) {
+                    _commandRateHz.value = commandsSentInWindow
+                    commandsSentInWindow = 0
+                    windowStartedAtMs = now
+                }
+                delay(period)
+            }
+        }
+    }
+
+    private fun stopSenderLoop() {
+        senderJob?.cancel()
+        senderJob = null
+        _commandRateHz.value = 0
+    }
+
+    // -------------------------------------------------------------------- input
+
+    fun press(controlId: String, slot: Slot) {
+        engine.pressSlot(controlId, slot, SystemClock.elapsedRealtime())
+        flushIfIdle()
+    }
+
+    fun release(controlId: String, slot: Slot) {
+        engine.releaseSlot(controlId, slot, SystemClock.elapsedRealtime())
+        flushIfIdle()
+    }
+
+    fun toggle(controlId: String, on: Boolean) {
+        engine.setToggle(controlId, on, SystemClock.elapsedRealtime())
+        flushIfIdle()
+    }
+
+    fun axis(controlId: String, slot: Slot, value: Float) {
+        engine.setAxis(controlId, slot, value)
+    }
+
+    fun panicStop() {
+        val commands = engine.panicStop()
+        _session.value?.sendCommands(commands)
+    }
+
+    /**
+     * When the send loop is not running (for instance while previewing a layout in the
+     * editor) input would otherwise never reach the hub; send it straight away.
+     */
+    private fun flushIfIdle() {
+        if (senderJob?.isActive == true) return
+        val commands = engine.tick(SystemClock.elapsedRealtime())
+        if (commands.isNotEmpty()) _session.value?.sendCommands(commands)
+    }
+
+    fun motorFor(port: Port): DeviceUpdate.Motor? = _session.value?.telemetry?.value?.motors?.get(port)
+
+    fun telemetry(): Telemetry = _session.value?.telemetry?.value ?: Telemetry()
+
+    private companion object {
+        const val TAG = "AppController"
+    }
+}

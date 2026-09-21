@@ -270,6 +270,28 @@ data class Binding(
 @Serializable
 enum class ControlShape { ROUNDED, CIRCLE, SQUARE }
 
+/**
+ * Optional mapping from a physical game controller to this control.
+ *
+ * Names are Android's own: `BUTTON_A`, `BUTTON_R1`, `DPAD_UP` for keys and `AXIS_X`,
+ * `AXIS_RZ`, `AXIS_HAT_X` for sticks and triggers. A control with a mapping works from
+ * the screen and from the gamepad at the same time.
+ */
+@Serializable
+data class GamepadBinding(
+    val key: String? = null,
+    val axisX: String? = null,
+    val axisY: String? = null,
+) {
+    val isEmpty: Boolean get() = key == null && axisX == null && axisY == null
+
+    fun describe(): String = listOfNotNull(
+        key,
+        axisX?.let { "X:$it" },
+        axisY?.let { "Y:$it" },
+    ).joinToString(" ").ifEmpty { "Not mapped" }
+}
+
 /** Per-control tuning. Not every field applies to every control type. */
 @Serializable
 data class ControlOptions(
@@ -312,6 +334,8 @@ data class ControlSpec(
     val shape: ControlShape = ControlShape.ROUNDED,
     val bindings: List<Binding> = emptyList(),
     val options: ControlOptions = ControlOptions(),
+    /** Optional physical game controller mapping. */
+    val gamepad: GamepadBinding? = null,
 ) {
     fun actionsFor(slot: Slot): List<Action> =
         bindings.firstOrNull { it.slot == slot }?.actions ?: emptyList()
