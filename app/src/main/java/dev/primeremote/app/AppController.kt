@@ -176,7 +176,11 @@ class AppController(private val context: Context) {
                 session.sendCommands(engine.sessionInit())
                 if (controllerActive) startSenderLoop()
             } else {
-                preferences.forgetProgramVersion(device.address)
+                // Only forget the uploaded version if we actually got far enough to try
+                // starting the program. A radio-level failure says nothing about what is
+                // in the slot, and re-uploading on every reconnect would make coming back
+                // after a brief drop needlessly slow.
+                if (session.hubInfo.value != null) preferences.forgetProgramVersion(device.address)
                 _status.value = (session.phase.value as? HubSession.Phase.Failed)?.reason ?: "Could not connect"
             }
         }
