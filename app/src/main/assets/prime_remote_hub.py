@@ -1,32 +1,30 @@
 # Prime-Remote hub receiver.
 #
 # The Android app uploads this program to a slot on the SPIKE Prime hub and starts it.
-# It then streams commands to it as BLE tunnel messages, which the firmware delivers to
-# this program's standard input. Everything this program prints comes back to the app as
-# console notifications.
+# It has to be stored as program.py: a slot only runs a file of that name.
+#
+# Commands then arrive as BLE tunnel messages. On SPIKE App 3 firmware those are handed
+# to the running program through hub.config["module_tunnel"], one callback per message --
+# they do not arrive on standard input. Everything this program prints comes back to the
+# app as a console notification.
 #
 # The command language is documented in
 # core/src/main/kotlin/dev/primeremote/core/protocol/HubCommands.kt and exercised by
 # tools/test_hub_program.py. Keep VERSION in step with HubProgram.VERSION in the app:
 # the app re-uploads this file whenever the two differ.
 
-import sys
+import hub
 import motor
 import motor_pair
-import runloop
 import time
 
 from hub import port, light, light_matrix, motion_sensor, sound
 
-VERSION = "2"
+VERSION = "3"
 
-# How long to wait between polls of the input when nothing is arriving.
-IDLE_SLEEP_MS = 10
-# If select.poll() claims there is never anything to read for this long, stop believing
-# it and switch to blocking reads. Some MicroPython builds do not report the console as
-# readable through poll() even when data is waiting, and a remote control that cannot
-# hear the phone is useless -- losing the watchdog is the lesser problem.
-POLL_SILENCE_MS = 3000
+# How often the main loop wakes to check the watchdog. Commands do not wait for it:
+# they are handled in the tunnel callback the moment they arrive.
+LOOP_MS = 10
 # The status light turns this colour once the program is running (4 = azure).
 READY_COLOUR = 4
 # ...and this one if the watchdog has to stop the robot (9 = red).
@@ -281,92 +279,50 @@ def check_watchdog():
 
 # ------------------------------------------------------------------------------ input
 
-# Reading standard input without blocking needs select.poll(). Where it is unavailable
-# the program falls back to blocking line reads, which still work because the app sends
-# continuously -- but the watchdog cannot fire while a read is blocked, so the app is
-# told which mode is in use.
-try:
-    import select as _select
 
-    _poll = _select.poll()
-    _poll.register(sys.stdin, _select.POLLIN)
-    INPUT_MODE = "poll"
-except Exception:
-    _poll = None
-    INPUT_MODE = "block"
+def on_tunnel(data):
+    # Called once per tunnel message. It must never raise: an exception escaping a
+    # firmware callback ends the program.
+    try:
+        # The firmware passes a memoryview, which has no decode() of its own.
+        text = bytes(data).decode()
+    except Exception as exc:
+        report_error("decode " + repr(exc))
+        return
+    try:
+        # Each message is complete in itself. The app ends them with a newline and may
+        # pack several lines into one, so split on both separators.
+        for line in text.replace("\r", "\n").split("\n"):
+            line = line.strip()
+            if line:
+                handle_line(line)
+    except Exception as exc:
+        report_error("tunnel " + repr(exc))
+
+
+INPUT_MODE = "tunnel"
 
 
 def announce():
     out("!rdy " + VERSION + " " + INPUT_MODE)
 
 
-async def pump_polled():
-    global INPUT_MODE
-    buffer = ""
-    last_input_at = now_ms()
-    while True:
-        received = False
-        while _poll.poll(0):
-            char = sys.stdin.read(1)
-            if not char:
-                break
-            received = True
-            if char == "\n" or char == "\r":
-                if buffer:
-                    handle_line(buffer)
-                    buffer = ""
-            else:
-                buffer += char
-                if len(buffer) > 512:  # runaway line, drop it
-                    buffer = ""
-        if received:
-            last_input_at = now_ms()
-        elif since(last_input_at) > POLL_SILENCE_MS:
-            # The app sends a keepalive several times a second, so this much silence
-            # means poll() is not telling us the truth about the console. Blocking reads
-            # go through the same stream and do work on these builds.
-            INPUT_MODE = "block"
-            announce()
-            await pump_blocking()
-            return
-        check_watchdog()
-        await runloop.sleep_ms(1 if received else IDLE_SLEEP_MS)
+try:
+    tunnel = hub.config["module_tunnel"]
+    tunnel.callback(on_tunnel)
+except Exception as exc:
+    # Without the tunnel nothing the app sends can reach this program. Say so plainly
+    # rather than sitting here looking alive.
+    INPUT_MODE = "none"
+    out("!er tunnel unavailable " + repr(exc))
 
+_last_command_at = now_ms()
+try:
+    light.color(light.POWER, READY_COLOUR)
+except Exception:
+    pass
+announce()
 
-async def pump_blocking():
-    buffer = ""
-    while True:
-        char = sys.stdin.read(1)
-        if not char:
-            # Nothing there (and the read did not block): wait rather than spin.
-            check_watchdog()
-            await runloop.sleep_ms(IDLE_SLEEP_MS)
-            continue
-        if char == "\n" or char == "\r":
-            if buffer:
-                handle_line(buffer)
-                buffer = ""
-            check_watchdog()
-            # Give the awaitables started by mt/mg/mp a chance to make progress.
-            await runloop.sleep_ms(1)
-        else:
-            buffer += char
-            if len(buffer) > 512:  # runaway line, drop it
-                buffer = ""
-
-
-async def main():
-    global _last_command_at
-    _last_command_at = now_ms()
-    try:
-        light.color(light.POWER, READY_COLOUR)
-    except Exception:
-        pass
-    announce()
-    if _poll is not None:
-        await pump_polled()
-    else:
-        await pump_blocking()
-
-
-runloop.run(main())
+while True:
+    check_watchdog()
+    time.sleep_ms(LOOP_MS)

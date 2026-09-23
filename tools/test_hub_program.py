@@ -2,8 +2,10 @@
 Runs app/src/main/assets/prime_remote_hub.py under CPython against stubbed LEGO modules.
 
 The hub program cannot be exercised without a robot, so this harness supplies fakes for
-`motor`, `motor_pair`, `hub`, `runloop`, `time` and `select`, feeds commands in through a
-fake stdin, and checks that each command reaches the LEGO API call it is supposed to.
+`motor`, `motor_pair`, `hub` and `time`, and delivers commands the way SPIKE App 3
+firmware does: through the callback registered on `hub.config["module_tunnel"]`, one
+call per tunnel message, with the payload as a memoryview. It then checks that each
+command reaches the LEGO API call it is supposed to.
 
     python3 tools/test_hub_program.py
 
@@ -64,26 +66,21 @@ class Recorder:
         return call
 
 
-class FakeStdin:
-    def __init__(self, script):
-        # script: list of strings to deliver, each fed one character at a time
-        self._data = "".join(script)
-        self._pos = 0
+class FakeTunnel:
+    """Stands in for hub.config["module_tunnel"]."""
 
-    def read(self, n=1):
-        if self._pos >= len(self._data):
-            return ""
-        out = self._data[self._pos:self._pos + n]
-        self._pos += n
-        return out
+    def __init__(self):
+        self.handler = None
+        self.sent = []
 
-    @property
-    def exhausted(self):
-        return self._pos >= len(self._data)
+    def callback(self, handler):
+        self.handler = handler
+
+    def send(self, data):
+        self.sent.append(bytes(data))
 
 
-def build_environment(script, poll_available=True, motor_failures=(), poll_lies=False):
-    """Install fake LEGO modules and return (namespace_modules, log, clock, stdout)."""
+def build_environment(script, motor_failures=(), tunnel_available=True, idle_loops=200):
     log = []
     stdout = []
     clock = {"ms": 1000}
@@ -98,111 +95,66 @@ def build_environment(script, poll_available=True, motor_failures=(), poll_lies=
     light = Recorder("light", log)
     light.POWER = 0
     light.CONNECT = 1
-    light_matrix = Recorder("light_matrix", log)
-    motion_sensor = Recorder("motion_sensor", log)
-    sound = Recorder("sound", log)
 
+    tunnel = FakeTunnel()
     hub = types.ModuleType("hub")
     hub.port = port_module
     hub.light = light
-    hub.light_matrix = light_matrix
-    hub.motion_sensor = motion_sensor
-    hub.sound = sound
+    hub.light_matrix = Recorder("light_matrix", log)
+    hub.motion_sensor = Recorder("motion_sensor", log)
+    hub.sound = Recorder("sound", log)
+    hub.config = {"module_tunnel": tunnel} if tunnel_available else {}
 
-    stdin = FakeStdin(script)
+    pending = [payload.encode() if isinstance(payload, str) else payload for payload in script]
+    idle = {"rounds": 0}
 
-    class Sleep:
-        def __init__(self, ms):
-            self.ms = ms
-
-        def __await__(self):
-            yield self.ms
-
-    runloop = types.ModuleType("runloop")
-    runloop.sleep_ms = lambda ms: Sleep(ms)
-
-    def run(*coros):
-        coro = coros[0]
-        idle_rounds = 0
-        try:
-            while True:
-                slept = coro.send(None)
-                clock["ms"] += slept if isinstance(slept, int) else 0
-                if stdin.exhausted:
-                    idle_rounds += 1
-                    # let the watchdog have time to notice before giving up
-                    if idle_rounds > 200:
-                        raise Done()
-                elif poll_lies:
-                    # Nothing is being consumed, so the loop would otherwise spin here
-                    # forever waiting for the fallback that only time can trigger.
-                    idle_rounds += 1
-                    if idle_rounds > 2000:
-                        raise Done()
-        except (StopIteration, Done):
-            pass
-
-    runloop.run = run
+    def sleep_ms(ms):
+        clock["ms"] += ms
+        if pending:
+            if tunnel.handler is None:
+                raise AssertionError("the program slept before registering its tunnel callback")
+            # The firmware hands the callback a memoryview, not bytes.
+            tunnel.handler(memoryview(pending.pop(0)))
+        else:
+            idle["rounds"] += 1
+            if idle["rounds"] > idle_loops:
+                raise Done()
 
     time_module = types.ModuleType("time")
     time_module.ticks_ms = lambda: clock["ms"]
     time_module.ticks_diff = lambda a, b: a - b
-    time_module.sleep_ms = lambda ms: None
-
-    select_module = None
-    if poll_available:
-        class Poll:
-            def __init__(self):
-                self._streams = []
-
-            def register(self, stream, flags):
-                self._streams.append(stream)
-
-            def poll(self, timeout=0):
-                # poll_lies reproduces the MicroPython builds that never report the
-                # console as readable even when data is waiting for it.
-                if poll_lies:
-                    return []
-                return [] if stdin.exhausted else [(stdin, 1)]
-
-        select_module = types.ModuleType("select")
-        select_module.poll = Poll
-        select_module.POLLIN = 1
+    time_module.sleep_ms = sleep_ms
 
     return {
         "motor": motor,
         "motor_pair": motor_pair,
         "hub": hub,
-        "runloop": runloop,
         "time": time_module,
-        "select": select_module,
-        "stdin": stdin,
+        "tunnel": tunnel,
         "log": log,
         "stdout": stdout,
         "clock": clock,
     }
 
 
-def run_program(script, poll_available=True, motor_failures=(), poll_lies=False):
-    env = build_environment(script, poll_available, motor_failures, poll_lies)
-    saved_modules = {}
-    for name in ("motor", "motor_pair", "hub", "runloop", "time", "select"):
-        saved_modules[name] = sys.modules.get(name)
-        if env[name] is None:
-            sys.modules[name] = None  # make `import select` fail, as on a hub without it
-        else:
-            sys.modules[name] = env[name]
-
-    saved_stdin, saved_print = sys.stdin, None
-    sys.stdin = env["stdin"]
+def run_program(script, motor_failures=(), tunnel_available=True, idle_loops=200):
+    env = build_environment(script, motor_failures, tunnel_available, idle_loops)
+    names = ("motor", "motor_pair", "hub", "time")
+    saved = {name: sys.modules.get(name) for name in names}
+    for name in names:
+        sys.modules[name] = env[name]
 
     source = open(PROGRAM).read()
-    namespace = {"__name__": "__main__", "print": lambda *a: env["stdout"].append(" ".join(str(x) for x in a))}
+    namespace = {
+        "__name__": "__main__",
+        "print": lambda *a: env["stdout"].append(" ".join(str(x) for x in a)),
+    }
     try:
         exec(compile(source, PROGRAM, "exec"), namespace)
+    except Done:
+        pass
     finally:
-        sys.stdin = saved_stdin
-        for name, module in saved_modules.items():
+        for name, module in saved.items():
             if module is None:
                 sys.modules.pop(name, None)
             else:
@@ -221,7 +173,7 @@ def calls(env, name=None):
 def test_announces_itself():
     env, _ = run_program(["ver\n"])
     check(env["stdout"], "the program should print something on startup")
-    check_equal(env["stdout"][0], "!rdy 2 poll", "startup announcement")
+    check_equal(env["stdout"][0], "!rdy 3 tunnel", "startup announcement")
     ready_lines = [line for line in env["stdout"] if line.startswith("!rdy")]
     check_equal(len(ready_lines), 2, "ver should re-announce: %r" % env["stdout"])
     check(("light.color", (0, 4), {}) in env["log"], "status light should turn azure when ready")
@@ -353,16 +305,14 @@ def test_watchdog_can_be_disabled():
 
 
 def test_watchdog_does_not_fire_while_commands_keep_coming():
-    # 60 commands, each separated by roughly one poll interval, well inside a 500 ms window
-    env, _ = run_program(["mv A 500\n"] * 60)
-    check("!wd" not in env["stdout"], "a steady command stream must not trip the watchdog")
-
-
-def test_blocking_input_mode():
-    env, _ = run_program(["mv A 500\n", "lc 6\n"], poll_available=False)
-    check_equal(env["stdout"][0], "!rdy 2 block", "the fallback mode should be announced")
-    check_equal(calls(env, "motor.run")[0], ("motor.run", ("pA", 500), {}), "commands work without select")
-    check(("light.color", (0, 6), {}) in env["log"], "later commands work without select")
+    # One command per 10 ms loop against a 100 ms watchdog: it must stay quiet for as long
+    # as the stream lasts, and only fire once the stream stops.
+    env, _ = run_program(["wd 100\n"] + ["mv A 500\n"] * 60)
+    names = [entry[0] for entry in env["log"]]
+    last_run = max(i for i, n in enumerate(names) if n == "motor.run")
+    first_stop = min((i for i, n in enumerate(names) if n == "motor.stop"), default=len(names))
+    check(first_stop > last_run, "the watchdog stopped the robot while commands were still arriving")
+    check("!wd" in env["stdout"], "and it should fire once they stop")
 
 
 def test_carriage_returns_are_tolerated():
@@ -384,26 +334,35 @@ def test_version_reports_what_it_has_received():
     check("er=1" in stats[0], "one of them was bad: %r" % stats)
 
 
-def test_falls_back_when_poll_never_reports_data():
-    # The program starts in poll mode, hears nothing despite data waiting, and switches.
-    env, _ = run_program(["mv A 500\n", "lc 6\n"], poll_lies=True)
-    check_equal(env["stdout"][0], "!rdy 2 poll", "it should start out trusting poll")
-    check(
-        "!rdy 2 block" in env["stdout"],
-        "it should re-announce after falling back: %r" % env["stdout"][:4],
-    )
-    check_equal(
-        calls(env, "motor.run")[0],
-        ("motor.run", ("pA", 500), {}),
-        "the waiting command should run once it falls back",
-    )
-    check(("light.color", (0, 6), {}) in env["log"], "and so should the one after it")
+def test_one_message_can_carry_several_lines():
+    env, _ = run_program(["mv A 100\nmv B 200\n"])
+    check_equal(len(calls(env, "motor.run")), 2, "both lines in one tunnel message should run")
 
 
-def test_no_fallback_while_poll_is_working():
-    env, _ = run_program(["mv A 500\n"] * 40)
-    blocks = [line for line in env["stdout"] if line.endswith("block")]
-    check(not blocks, "a working poll must not trigger the fallback: %r" % env["stdout"])
+def test_message_without_trailing_newline_still_runs():
+    # Each tunnel message is complete in itself; a missing newline must not strand it.
+    env, _ = run_program(["mv A 250"])
+    check_equal(calls(env, "motor.run")[0], ("motor.run", ("pA", 250), {}), "command without newline")
+
+
+def test_undecodable_message_does_not_kill_the_program():
+    env, _ = run_program([b"\xff\xfe\xfd", "mv A 300\n"])
+    check(any(line.startswith("!er decode") for line in env["stdout"]), "bad bytes are reported")
+    check_equal(calls(env, "motor.run")[0], ("motor.run", ("pA", 300), {}), "later commands still run")
+
+
+def test_missing_tunnel_is_reported():
+    env, _ = run_program([], tunnel_available=False, idle_loops=5)
+    check(any(line.startswith("!er tunnel unavailable") for line in env["stdout"]),
+          "a hub without the tunnel should say so: %r" % env["stdout"])
+    check("!rdy 3 none" in env["stdout"], "and announce that it cannot receive")
+
+
+def test_callback_is_registered_before_announcing():
+    # The app starts sending as soon as it sees !rdy, so the callback must already be there.
+    env, _ = run_program(["mv A 100\n"])
+    check(env["tunnel"].handler is not None, "a tunnel callback must be registered")
+    check_equal(calls(env, "motor.run")[0], ("motor.run", ("pA", 100), {}), "and it must receive")
 
 
 def test_kotlin_and_python_have_not_drifted():
@@ -430,6 +389,9 @@ def test_kotlin_and_python_have_not_drifted():
 
 def test_program_is_valid_for_the_hub():
     source = open(PROGRAM).read()
+    check('hub.config["module_tunnel"]' in source, "commands arrive through the module tunnel")
+    for gone in ("sys.stdin", "select", "runloop"):
+        check(gone not in source, "the program must not depend on " + gone)
     check(len(source) < 30000, "the program has to be uploaded over BLE, so keep it small")
     check("\t" not in source, "tabs and MicroPython indentation do not mix well")
     for line in source.splitlines():

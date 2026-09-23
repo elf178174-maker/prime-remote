@@ -91,7 +91,7 @@ class HubSession(
     private val _latencyMs = MutableStateFlow<Int?>(null)
     val latencyMs: StateFlow<Int?> = _latencyMs.asStateFlow()
 
-    /** Input mode the hub program reported: "poll" (watchdog works) or "block". */
+    /** How the hub program receives commands: "tunnel", or "none" if it could not. */
     private val _hubInputMode = MutableStateFlow<String?>(null)
     val hubInputMode: StateFlow<String?> = _hubInputMode.asStateFlow()
 

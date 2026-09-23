@@ -54,9 +54,10 @@ fun TelemetryScreen(controller: AppController, onBack: () -> Unit) {
                     KeyValue(
                         "Hub input mode",
                         when (inputMode) {
-                            "poll" -> "poll (safety watchdog active)"
-                            "block" -> "blocking (watchdog cannot fire)"
-                            else -> "—"
+                            "tunnel" -> "tunnel callback (watchdog active)"
+                            "none" -> "no tunnel -- commands cannot arrive"
+                            null -> "—"
+                            else -> inputMode.orEmpty()
                         },
                     )
                 }

@@ -143,7 +143,8 @@ program on the hub and talks to it.
 4. **Start** the program and wait for it to print `!rdy`.
 5. **Drive**: the control engine works out each motor's target 20 times a second and sends
    only what changed, as an ASCII command line inside a tunnel message. The firmware hands
-   that payload to the program's standard input.
+   each tunnel message to the program through `hub.config["module_tunnel"]`, as a
+   callback.
 6. **Listen**: sensor and motor state arrive as device notifications, and anything the
    program prints arrives as a console notification.
 
@@ -152,8 +153,8 @@ Messages are framed with COBS (delimiter `0x02`, XOR `0x03`) exactly as LEGO doc
 ### The wire protocol
 
 Commands are printable ASCII, several per line separated by `;`, terminated with a
-newline. Printable-only is deliberate: the payload reaches the program through its console
-input, where a raw `0x03` byte would read as ctrl-C and kill it.
+newline. Keeping to printable characters means the traffic is readable in the console
+screen, and the program never has to guess at binary framing.
 
 | Command | Meaning |
 | --- | --- |
@@ -215,9 +216,12 @@ python3 tools/test_hub_program.py               # runs the hub program under CPy
   should — including the watchdog, malformed input, and the fallback input mode.
 - **The app** is compiled in CI.
 
-What none of that covers is real hardware: the BLE stack and the robot itself have not
-been exercised. The first run against a real hub is the real test, and the console screen
-is there to make that debuggable.
+The hub-program harness delivers commands exactly the way the firmware does — through a
+callback on `module_tunnel`, one call per message, with the payload as a `memoryview` —
+so it fails the way a real hub fails if the program listens anywhere else. That was the
+bug in the first releases: they read commands from standard input, which SPIKE App 3
+firmware never feeds, so the hub connected fine and then ignored everything. The fix
+follows two independent working SPIKE 3 remote-control projects.
 
 ---
 
@@ -236,37 +240,19 @@ the chain got:
 | What you see | What it means |
 | --- | --- |
 | Nothing at all | The program is not running. The hub's light should be azure once it is. |
-| `!rdy 1 poll` and `!pg` replies | Everything works; the problem is in the bindings (wrong port, speed 0, master speed turned down). |
-| `!rdy 1 poll` but never a `!pg` | The program is running but not receiving. See below. |
+| `!rdy 3 tunnel`, then `Commands are reaching the hub` | Everything works; the problem is in the bindings (wrong port, speed 0, master speed turned down). |
+| `!rdy 3 tunnel`, then `No reply to any ping` | The program is running but not receiving. See below. |
 | `!er …` lines | A command is being rejected, and the line names it. |
 
 The fastest check of all: open the console and tap the **Version** quick command. If a
 `!rdy …` line and a `!st rx=… ` line appear, the hub is hearing you. If nothing appears,
 it is not.
 
-`!rdy` without `!pg` is the interesting one: it means the program started but nothing the
-app sends is reaching its input. That is the one link in the chain that is inferred rather
-than spelled out in LEGO's protocol reference — the app sends commands as tunnel messages
-(message 50, which LEGO documents as carrying an arbitrary payload) and the program reads
-them from its standard input, which is where the firmware delivers console input. Every
-other part of this is straight from the published protocol. If you hit this, the console
-screen and the `ver` quick command are the tools for chasing it down, and it would be
-worth raising as an issue with what the console showed.
-
-The program handles this case itself as far as it can: it starts out using `select.poll()`
-so the safety watchdog can run, but if poll claims there is nothing to read for three
-seconds straight -- while the app is sending a keepalive several times a second -- it stops
-believing it and switches to blocking reads, re-announcing itself as `!rdy 2 block`. Some
-MicroPython builds never report the console as readable through poll even when data is
-waiting, and being able to drive matters more than the watchdog.
-
-**The console says `block` instead of `poll`.** The hub's MicroPython build has no
-`select` module, so the program falls back to blocking reads. Controls still work, but the
-hub-side watchdog cannot fire while a read is blocked — the app's own stop-on-background
-and STOP button still work.
-
-**One side of the robot drives backwards.** Flip the sign of that motor's amount in the
-binding (100 → -100).
+`!rdy` without `!pg` means the program started but nothing the app sends is reaching
+it. The program registers a callback on `hub.config["module_tunnel"]`, which is how SPIKE
+App 3 firmware delivers tunnel messages to a running program; if the hub cannot provide
+that, the console shows `!er tunnel unavailable` and the program announces itself as
+`!rdy 3 none`.
 
 **I turned on the synchronized drive pair and now nothing moves.** Pairing needs motors
 plugged into both of the ports it names. If they are not there the console shows
