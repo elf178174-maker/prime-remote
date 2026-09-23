@@ -18,10 +18,15 @@ import time
 
 from hub import port, light, light_matrix, motion_sensor, sound
 
-VERSION = "1"
+VERSION = "2"
 
 # How long to wait between polls of the input when nothing is arriving.
 IDLE_SLEEP_MS = 10
+# If select.poll() claims there is never anything to read for this long, stop believing
+# it and switch to blocking reads. Some MicroPython builds do not report the console as
+# readable through poll() even when data is waiting, and a remote control that cannot
+# hear the phone is useless -- losing the watchdog is the lesser problem.
+POLL_SILENCE_MS = 3000
 # The status light turns this colour once the program is running (4 = azure).
 READY_COLOUR = 4
 # ...and this one if the watchdog has to stop the robot (9 = red).
@@ -40,6 +45,8 @@ _last_command_at = 0
 _watchdog_tripped = False
 _last_error = ""
 _paired = {}
+_rx_lines = 0
+_errors = 0
 
 
 def now_ms():
@@ -57,7 +64,8 @@ def out(text):
 def report_error(text):
     # Repeating the same failure 20 times a second would drown the console, so only
     # changes get reported.
-    global _last_error
+    global _last_error, _errors
+    _errors += 1
     if text != _last_error:
         _last_error = text
         out("!er " + text)
@@ -209,6 +217,7 @@ def cmd_st(a):
 
 def cmd_ver(a):
     announce()
+    out("!st rx=" + str(_rx_lines) + " er=" + str(_errors) + " wd=" + str(_watchdog_ms))
 
 
 HANDLERS = {
@@ -236,8 +245,13 @@ def handle_command(text):
 
 
 def handle_line(line):
-    global _last_command_at, _watchdog_tripped
+    global _last_command_at, _watchdog_tripped, _rx_lines
     _last_command_at = now_ms()
+    _rx_lines += 1
+    if _rx_lines == 1:
+        # Say so the first time anything arrives: it is the one fact you cannot work out
+        # from the phone's side of the link.
+        out("!rx")
     if _watchdog_tripped:
         _watchdog_tripped = False
         try:
@@ -287,7 +301,9 @@ def announce():
 
 
 async def pump_polled():
+    global INPUT_MODE
     buffer = ""
+    last_input_at = now_ms()
     while True:
         received = False
         while _poll.poll(0):
@@ -303,22 +319,40 @@ async def pump_polled():
                 buffer += char
                 if len(buffer) > 512:  # runaway line, drop it
                     buffer = ""
+        if received:
+            last_input_at = now_ms()
+        elif since(last_input_at) > POLL_SILENCE_MS:
+            # The app sends a keepalive several times a second, so this much silence
+            # means poll() is not telling us the truth about the console. Blocking reads
+            # go through the same stream and do work on these builds.
+            INPUT_MODE = "block"
+            announce()
+            await pump_blocking()
+            return
         check_watchdog()
         await runloop.sleep_ms(1 if received else IDLE_SLEEP_MS)
 
 
 async def pump_blocking():
+    buffer = ""
     while True:
-        buffer = ""
-        while True:
-            char = sys.stdin.read(1)
-            if not char or char == "\n" or char == "\r":
-                break
+        char = sys.stdin.read(1)
+        if not char:
+            # Nothing there (and the read did not block): wait rather than spin.
+            check_watchdog()
+            await runloop.sleep_ms(IDLE_SLEEP_MS)
+            continue
+        if char == "\n" or char == "\r":
+            if buffer:
+                handle_line(buffer)
+                buffer = ""
+            check_watchdog()
+            # Give the awaitables started by mt/mg/mp a chance to make progress.
+            await runloop.sleep_ms(1)
+        else:
             buffer += char
-        if buffer:
-            handle_line(buffer)
-        # Give the awaitables started by mt/mg/mp a chance to make progress.
-        await runloop.sleep_ms(1)
+            if len(buffer) > 512:  # runaway line, drop it
+                buffer = ""
 
 
 async def main():

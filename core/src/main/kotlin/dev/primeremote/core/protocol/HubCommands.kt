@@ -138,6 +138,9 @@ sealed interface HubReply {
     data class Pong(val sequence: Int) : HubReply
     data object WatchdogFired : HubReply
     data class Error(val text: String) : HubReply
+
+    /** The hub saying it has received a command line for the first time. */
+    data object Receiving : HubReply
     data class Log(val text: String) : HubReply
 
     companion object {
@@ -150,6 +153,7 @@ sealed interface HubReply {
                 }
                 t.startsWith("!pg") -> Pong(t.split(" ").getOrNull(1)?.toIntOrNull() ?: -1)
                 t.startsWith("!wd") -> WatchdogFired
+                t.startsWith("!rx") -> Receiving
                 t.startsWith("!er") -> Error(t.removePrefix("!er").trim())
                 else -> Log(t)
             }

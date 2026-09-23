@@ -11,7 +11,7 @@ package dev.primeremote.core
 object HubProgram {
 
     /** Must match VERSION in prime_remote_hub.py — tools/test_hub_program.py checks this. */
-    const val VERSION = "1"
+    const val VERSION = "2"
 
     const val ASSET_NAME = "prime_remote_hub.py"
 

@@ -110,6 +110,8 @@ class HubSession(
     private var pingSequence = 0
     private var pingSentAtMs = 0L
     private var lastSentAtMs = 0L
+    private var pongsSeen = 0
+    private var reportedDeafLink = false
 
     /**
      * How long the link may stay silent before a ping is sent.
@@ -372,9 +374,16 @@ class HubSession(
 
                 is HubReply.Pong -> {
                     if (reply.sequence == pingSequence) {
-                        _latencyMs.value = (SystemClock.elapsedRealtime() - pingSentAtMs).toInt()
+                        val roundTrip = (SystemClock.elapsedRealtime() - pingSentAtMs).toInt()
+                        _latencyMs.value = roundTrip
+                        if (pongsSeen == 0) {
+                            log("Commands are reaching the hub (round trip ${'$'}roundTrip ms)")
+                        }
+                        pongsSeen++
                     }
                 }
+
+                HubReply.Receiving -> log("Hub received its first command")
 
                 HubReply.WatchdogFired -> {
                     _watchdogTripped.value = true
@@ -423,6 +432,7 @@ class HubSession(
     private fun startPingLoop() {
         if (pingJob != null) return
         lastSentAtMs = SystemClock.elapsedRealtime()
+        watchForADeafLink()
         pingJob = scope.launch {
             while (true) {
                 delay(PING_TICK_MS)
@@ -432,6 +442,24 @@ class HubSession(
                 pingSentAtMs = SystemClock.elapsedRealtime()
                 sendCommands(listOf(HubCommands.ping(pingSequence)))
             }
+        }
+    }
+
+    /**
+     * The program can be running happily and still not hear a word the app says, which
+     * looks exactly like a layout with nothing bound to it. Rather than leave that to be
+     * puzzled out, say it plainly in the console.
+     */
+    private fun watchForADeafLink() {
+        scope.launch {
+            delay(DEAF_LINK_TIMEOUT_MS)
+            if (_phase.value != Phase.Ready || pongsSeen > 0 || reportedDeafLink) return@launch
+            reportedDeafLink = true
+            log(
+                "No reply to any ping. The program is running on the hub but is not " +
+                    "receiving commands, so nothing will move. See the troubleshooting " +
+                    "section of the README."
+            )
         }
     }
 
@@ -473,6 +501,7 @@ class HubSession(
         const val HANDSHAKE_TIMEOUT_MS = 5_000L
         const val SHORT_TIMEOUT_MS = 1_500L
         const val PING_TICK_MS = 100L
+        const val DEAF_LINK_TIMEOUT_MS = 5_000L
         const val MAX_CONSOLE_LINES = 400
     }
 }

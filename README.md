@@ -240,6 +240,10 @@ the chain got:
 | `!rdy 1 poll` but never a `!pg` | The program is running but not receiving. See below. |
 | `!er …` lines | A command is being rejected, and the line names it. |
 
+The fastest check of all: open the console and tap the **Version** quick command. If a
+`!rdy …` line and a `!st rx=… ` line appear, the hub is hearing you. If nothing appears,
+it is not.
+
 `!rdy` without `!pg` is the interesting one: it means the program started but nothing the
 app sends is reaching its input. That is the one link in the chain that is inferred rather
 than spelled out in LEGO's protocol reference — the app sends commands as tunnel messages
@@ -248,6 +252,13 @@ them from its standard input, which is where the firmware delivers console input
 other part of this is straight from the published protocol. If you hit this, the console
 screen and the `ver` quick command are the tools for chasing it down, and it would be
 worth raising as an issue with what the console showed.
+
+The program handles this case itself as far as it can: it starts out using `select.poll()`
+so the safety watchdog can run, but if poll claims there is nothing to read for three
+seconds straight -- while the app is sending a keepalive several times a second -- it stops
+believing it and switches to blocking reads, re-announcing itself as `!rdy 2 block`. Some
+MicroPython builds never report the console as readable through poll even when data is
+waiting, and being able to drive matters more than the watchdog.
 
 **The console says `block` instead of `poll`.** The hub's MicroPython build has no
 `select` module, so the program falls back to blocking reads. Controls still work, but the

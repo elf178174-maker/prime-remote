@@ -82,7 +82,7 @@ class FakeStdin:
         return self._pos >= len(self._data)
 
 
-def build_environment(script, poll_available=True, motor_failures=()):
+def build_environment(script, poll_available=True, motor_failures=(), poll_lies=False):
     """Install fake LEGO modules and return (namespace_modules, log, clock, stdout)."""
     log = []
     stdout = []
@@ -133,6 +133,12 @@ def build_environment(script, poll_available=True, motor_failures=()):
                     # let the watchdog have time to notice before giving up
                     if idle_rounds > 200:
                         raise Done()
+                elif poll_lies:
+                    # Nothing is being consumed, so the loop would otherwise spin here
+                    # forever waiting for the fallback that only time can trigger.
+                    idle_rounds += 1
+                    if idle_rounds > 2000:
+                        raise Done()
         except (StopIteration, Done):
             pass
 
@@ -153,6 +159,10 @@ def build_environment(script, poll_available=True, motor_failures=()):
                 self._streams.append(stream)
 
             def poll(self, timeout=0):
+                # poll_lies reproduces the MicroPython builds that never report the
+                # console as readable even when data is waiting for it.
+                if poll_lies:
+                    return []
                 return [] if stdin.exhausted else [(stdin, 1)]
 
         select_module = types.ModuleType("select")
@@ -173,8 +183,8 @@ def build_environment(script, poll_available=True, motor_failures=()):
     }
 
 
-def run_program(script, poll_available=True, motor_failures=()):
-    env = build_environment(script, poll_available, motor_failures)
+def run_program(script, poll_available=True, motor_failures=(), poll_lies=False):
+    env = build_environment(script, poll_available, motor_failures, poll_lies)
     saved_modules = {}
     for name in ("motor", "motor_pair", "hub", "runloop", "time", "select"):
         saved_modules[name] = sys.modules.get(name)
@@ -211,8 +221,9 @@ def calls(env, name=None):
 def test_announces_itself():
     env, _ = run_program(["ver\n"])
     check(env["stdout"], "the program should print something on startup")
-    check_equal(env["stdout"][0], "!rdy 1 poll", "startup announcement")
-    check_equal(env["stdout"][1], "!rdy 1 poll", "response to the ver command")
+    check_equal(env["stdout"][0], "!rdy 2 poll", "startup announcement")
+    ready_lines = [line for line in env["stdout"] if line.startswith("!rdy")]
+    check_equal(len(ready_lines), 2, "ver should re-announce: %r" % env["stdout"])
     check(("light.color", (0, 4), {}) in env["log"], "status light should turn azure when ready")
 
 
@@ -349,7 +360,7 @@ def test_watchdog_does_not_fire_while_commands_keep_coming():
 
 def test_blocking_input_mode():
     env, _ = run_program(["mv A 500\n", "lc 6\n"], poll_available=False)
-    check_equal(env["stdout"][0], "!rdy 1 block", "the fallback mode should be announced")
+    check_equal(env["stdout"][0], "!rdy 2 block", "the fallback mode should be announced")
     check_equal(calls(env, "motor.run")[0], ("motor.run", ("pA", 500), {}), "commands work without select")
     check(("light.color", (0, 6), {}) in env["log"], "later commands work without select")
 
@@ -357,6 +368,42 @@ def test_blocking_input_mode():
 def test_carriage_returns_are_tolerated():
     env, _ = run_program(["mv A 500\r\n"])
     check_equal(len(calls(env, "motor.run")), 1, "a CRLF line ending should still be one command")
+
+
+def test_first_command_is_announced():
+    env, _ = run_program(["mv A 500\n", "mv A 600\n"])
+    beacons = [line for line in env["stdout"] if line == "!rx"]
+    check_equal(len(beacons), 1, "the hub should say once that it has started receiving")
+
+
+def test_version_reports_what_it_has_received():
+    env, _ = run_program(["mv A 500\n", "bogus\n", "ver\n"])
+    stats = [line for line in env["stdout"] if line.startswith("!st")]
+    check(stats, "ver should report counters: %r" % env["stdout"])
+    check("rx=3" in stats[0], "three lines were received: %r" % stats)
+    check("er=1" in stats[0], "one of them was bad: %r" % stats)
+
+
+def test_falls_back_when_poll_never_reports_data():
+    # The program starts in poll mode, hears nothing despite data waiting, and switches.
+    env, _ = run_program(["mv A 500\n", "lc 6\n"], poll_lies=True)
+    check_equal(env["stdout"][0], "!rdy 2 poll", "it should start out trusting poll")
+    check(
+        "!rdy 2 block" in env["stdout"],
+        "it should re-announce after falling back: %r" % env["stdout"][:4],
+    )
+    check_equal(
+        calls(env, "motor.run")[0],
+        ("motor.run", ("pA", 500), {}),
+        "the waiting command should run once it falls back",
+    )
+    check(("light.color", (0, 6), {}) in env["log"], "and so should the one after it")
+
+
+def test_no_fallback_while_poll_is_working():
+    env, _ = run_program(["mv A 500\n"] * 40)
+    blocks = [line for line in env["stdout"] if line.endswith("block")]
+    check(not blocks, "a working poll must not trigger the fallback: %r" % env["stdout"])
 
 
 def test_kotlin_and_python_have_not_drifted():
